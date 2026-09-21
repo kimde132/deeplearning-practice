@@ -186,3 +186,17 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,venv
+
+### 학습된 모델/산출물 ###
+*.joblib
+*.pkl
+*.pt
+*.pth
+*.h5
+*.ckpt
+
+### 에디터/OS ###
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
