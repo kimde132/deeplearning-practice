@@ -61,25 +61,34 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     P1-SP1-EXF01    279
 #     P1-SP2-EXF01    279
 # TODO
-
+print("\nA1")
+print(d.shape)
+print(d.isnull().sum().sum())
+print(d["EQP_CD"].value_counts())
 
 # [A2] 정답 y 와 입력 X 를 만드세요.
 #      y : 2호기면 1, 1호기면 0
 #          힌트: (d["EQP_CD"] == "P1-SP2-EXF01").astype(float).values
 #      X : 아래 5개 특징
 특징이름 = [
-    "VIB-MDE_1X",    # 전동기 구동단, 1차 회전성분
+    "VIB-MDE_1X",  # 전동기 구동단, 1차 회전성분
     "VIB-MNDE_RMS",  # 전동기 반구동단, 실효값
     "VIB-FNDE_RMS",  # 팬 반구동단, 실효값
-    "VIB-MDE_NSY",   # 전동기 구동단, 비동기 성분비
-    "VIB-MDE_HF",    # 전동기 구동단, 고주파 에너지
+    "VIB-MDE_NSY",  # 전동기 구동단, 비동기 성분비
+    "VIB-MDE_HF",  # 전동기 구동단, 고주파 에너지
 ]
 #      X.shape 가 (558, 5), y.shape 가 (558,) 인지 확인하세요.
 #
 # [나와야 하는 출력]
 #     X.shape: (558, 5) / y.shape: (558,)      (y 의 합 = 279 → 2호기 279건)
 # TODO
+print("\nA2")
 
+X = d[특징이름].values.astype(float)
+y = (d["EQP_CD"] == "P1-SP2-EXF01").astype(float).values
+
+print(X.shape)
+print(y.shape)
 
 # [A3] 특징 5개 각각에 대해 1호기 평균과 2호기 평균을 나란히 찍으세요.
 #      힌트: d[y == 0][이름].mean() 과 d[y == 1][이름].mean() 을 for 문으로
@@ -97,7 +106,12 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     VIB-MDE_NSY    1호기 0.4756   2호기 0.5958
 #     VIB-MDE_HF     1호기 0.2133   2호기 0.2612
 # TODO
+print("\nA3")
 
+for name in 특징이름:
+    print(
+        f"{name:<13} 1호기 : {round(d[y == 0][name].mean(), 4)}  2호기 : {round(d[y == 1][name].mean(), 4)}"
+    )
 
 # =====================================================================
 # B. 나누고 표준화 — 03 에서 한 것과 똑같이
@@ -117,7 +131,17 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 # [나와야 하는 출력]
 #     학습용 390 건 (2호기 195) / 시험용 168 건 (2호기 84)
 # TODO
+print("\nB1")
 
+rng = np.random.RandomState(3)
+i1 = rng.permutation(np.where(y == 1)[0])
+i0 = rng.permutation(np.where(y == 0)[0])
+tr = np.concatenate([i1[: int(len(i1) * 0.7)], i0[: int(len(i0) * 0.7)]])
+te = np.concatenate([i1[int(len(i1) * 0.7) :], i0[int(len(i0) * 0.7) :]])
+
+print(
+    f"학습용 {len(tr)}건 (2호기 {int(len(i1) * 0.7)}) / 시험용 {len(te)}건 (2호기 {int(len(i1) - int(len(i1) * 0.7))})"
+)
 
 # [B2] 열별 표준화. ★ mu 와 sd 는 학습용에서만 구합니다 ★ (지금까지와 같은 규칙)
 #      시험용도 학습용의 mu, sd 로 변환합니다.
@@ -128,7 +152,26 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     표준화 후 학습용 열별 평균: [0. 0. 0. 0. 0.] / 퍼짐: [1. 1. 1. 1. 1.]
 #     표준화 후 시험용 열별 평균: [-0.018  0.006  0.01   0.048  0.013]
 # TODO
+print("\nB2")
 
+X_train = X[tr]
+X_test = X[te]
+
+y_train = y[tr]
+y_test = y[te]
+
+mu = X_train.mean(axis=0)
+sd = X_train.std(axis=0)
+
+Z_train = (X_train - mu) / sd
+Z_test = (X_test - mu) / sd
+
+print(f"mu = {mu.round(4)}")
+print(f"sd = {sd.round(4)}")
+print(
+    f"표준화 후 학습용 열별 평균 : {Z_train.mean(axis=0).round(3)} / 퍼짐 : {Z_train.std(axis=0).round(3)}"
+)
+print(f"표준화 후 시험용 열별 평균 : {Z_test.mean(axis=0).round(3)}")
 
 # =====================================================================
 # C. 학습 — 03 의 함수를 그대로 가져다 쓰세요
@@ -142,6 +185,56 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 # [나와야 하는 출력]
 #     출력 없음. sigmoid / 확률 / 손실 / 기울기_밟아보기 / 학습 / 네칸 여섯 개와 h = 0.0001 이 정의되면 됩니다.
 # TODO
+print("\nC1")
+
+
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+
+def 확률(Z, w, b):
+    return sigmoid(Z @ w + b)
+
+
+def 손실(Z, y, w, b):
+    p = np.clip(확률(Z, w, b), 1e-12, 1 - 1e-12)
+    return -np.mean(y * np.log(p) + (1 - y) * np.log(1 - p))
+
+
+h = 0.0001
+
+
+def 기울기_밟아보기(Z, y, w, b):  # 02 4번와 동일 (편미분 5번 = 그래디언트)
+    gw = np.zeros(len(w))
+    for j in range(len(w)):
+        w1, w2 = w.copy(), w.copy()
+        w1[j] += h
+        w2[j] -= h
+        gw[j] = (손실(Z, y, w1, b) - 손실(Z, y, w2, b)) / (2 * h)
+    gb = (손실(Z, y, w, b + h) - 손실(Z, y, w, b - h)) / (2 * h)
+    return gw, gb
+
+
+def 학습(Z, y, lr=0.5, epochs=2000, 보여주기=True):
+    w = np.zeros(Z.shape[1])
+    b = 0.0
+    for epoch in range(epochs):
+        gw, gb = 기울기_밟아보기(Z, y, w, b)
+        w = w - lr * gw
+        b = b - lr * gb
+        if (
+            보여주기 and epoch % 400 == 0
+        ):  # 400 바퀴마다 손실 출력. % = 나머지, 400 으로 나눠 떨어질 때만
+            print(f"    epoch {epoch:4d}  손실 {손실(Z, y, w, b):.4f}")
+    return w, b
+
+
+def 네칸(y, 판정):
+    TP = int(((y == 1) & (판정 == 1)).sum())
+    FN = int(((y == 1) & (판정 == 0)).sum())
+    FP = int(((y == 0) & (판정 == 1)).sum())
+    TN = int(((y == 0) & (판정 == 0)).sum())  # .sum() 으로 True 개수 세기
+    return TP, FN, FP, TN
 
 
 # [C2] 학습용으로 학습(lr=0.5, epochs=2000)하고, 특징별 가중치를 크기순으로 찍으세요.
@@ -168,7 +261,21 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #       VIB-MNDE_RMS  -0.303  클수록 2호기 확률 ↓
 #     (절편 b = -0.043)
 # TODO
+print("\nC2")
 
+w, b = 학습(Z_train, y_train)
+
+print(f"2000 걸음 후 손실 : {round(손실(Z_train, y_train, w, b), 3)}")
+
+order = np.argsort(np.abs(w))[::-1]
+
+print("표준화 눈금 가중치 (크기순)")
+
+for idx in order:
+    print(
+        f"{특징이름[idx]:<13} {round(w[idx], 3):>8}   클수록 2호기 확률 {'↓' if w[idx] < 0 else '↑'}"
+    )
+print(f"(절편 b = {round(b, 3)})")
 
 # =====================================================================
 # D. 채점 — 정확도 하나만 보면 안 된다
@@ -183,6 +290,18 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     1호기 84건 중  통과(TN) 56  헛경보(FP) 28
 #     재현율 0.82  정밀도 0.71
 # TODO
+print("\nD1")
+
+p_test = 확률(Z_test, w, b)
+판정 = (p_test >= 0.5).astype(int)
+TP, FN, FP, TN = 네칸(y_test, 판정)
+
+재현율 = TP / (TP + FN) if TP + FN else 0
+정밀도 = TP / (TP + FP) if TP + FP else 0
+정확도 = np.mean(판정 == y_test)
+print(
+    f"정확도 : {round(정확도, 3)}\n2호기 {int(y_test.sum())}건 중 잡음(TP) {TP} 놓침(FN) {FN}\n1호기 {int(len(y_test) - y_test.sum())}건 중 통과(TN) {TN} 헛경보(FP) {FP}\n재현율 {round(재현율, 2)} 정밀도 {round(정밀도, 2)}"
+)
 
 
 # [D2] 비교용으로 '무조건 1호기라고만 답하는' 게으른 모델의 정확도를 찍으세요.
@@ -200,7 +319,17 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 # [나와야 하는 출력]
 #     무조건 1호기라 답하면 → 정확도 0.500, 재현율 0.00
 # TODO
+print("\nD2")
 
+판정_0 = np.zeros_like(y_test, dtype=int)
+
+TP, FN, FP, TN = 네칸(y_test, 판정_0)
+
+재현율 = TP / (TP + FN) if TP + FN else 0
+정밀도 = TP / (TP + FP) if TP + FP else 0
+정확도 = np.mean(판정_0 == y_test)
+
+print(f"무조건 1호기라 답하면 -> 정확도 {정확도}, 재현율 {재현율}")
 
 # =====================================================================
 # E. 임계값
@@ -220,7 +349,24 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     0.3      80     4     47    0.95    0.63    (0.696)
 #     0.2      82     2     51    0.98    0.62    (0.685)
 # TODO
+print("\nE1")
 
+conf_list = [0.5, 0.4, 0.3, 0.2]
+
+print(f"임계값    잡음    놓침    헛경보    재현률    정밀도    (정확도)")
+
+for conf in conf_list:
+    p_test = 확률(Z_test, w, b)
+    판정 = (p_test >= conf).astype(int)
+    TP, FN, FP, TN = 네칸(y_test, 판정)
+
+    재현율 = TP / (TP + FN) if TP + FN else 0
+    정밀도 = TP / (TP + FP) if TP + FP else 0
+    정확도 = np.mean(판정 == y_test)
+
+    print(
+        f"{conf}        {TP}       {FN}       {FP}      {round(재현율, 2)}      {round(정밀도, 2)}      ({round(정확도, 3)})"
+    )
 
 # =====================================================================
 # F. 함정 1 — "이 558행은 정말 558번의 독립된 관측인가"
@@ -262,6 +408,50 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     (임계값을 0.2 까지 내려도 잡음 1 / 헛경보 1. 거의 안 바뀝니다.
 #      학습용 자체 점수도 정확도 0.610 / 재현율 0.64 밖에 안 됩니다)
 # TODO
+print("\nF1")
+
+세션 = d["SESS_ID"].values
+시험세션 = ["V24-SP1-04", "V24-SP2-04"]
+tr2 = np.where(~np.isin(세션, 시험세션))[0]
+te2 = np.where(np.isin(세션, 시험세션))[0]
+
+Xs_train = X[tr2]
+Xs_test = X[te2]
+
+ys_train = y[tr2]
+ys_test = y[te2]
+
+mu = Xs_train.mean(axis=0)
+sd = Xs_train.std(axis=0)
+
+Zs_train = (Xs_train - mu) / sd
+Zs_test = (Xs_test - mu) / sd
+
+print(
+    f"학습용 {len(Xs_train)} 건 (2호기 {int(ys_train.sum())}) / 시험용 {len(Xs_test)}건 (2호기 {int(ys_test.sum())})"
+)
+
+w, b = 학습(Zs_train, ys_train)
+
+order = np.argsort(np.abs(w))[::-1]
+
+print(f"가중치(크기순) : ", end="")
+for idx in order:
+    print(f"{특징이름[idx]} {round(w[idx], 3)} / ", end="")
+
+print(f"\n시험용 임계값 (0.5)")
+
+ps_test = 확률(Zs_test, w, b)
+판정 = (ps_test >= 0.5).astype(int)
+TP, FN, FP, TN = 네칸(ys_test, 판정)
+
+재현율 = TP / (TP + FN) if TP + FN else 0
+정밀도 = TP / (TP + FP) if TP + FP else 0
+정확도 = np.mean(판정 == ys_test)
+
+print(f"2호기 {int(ys_test.sum())}건 중 잡음(TP) {TP} 놓침(FN) {FN}")
+print(f"1호기 {int(ys_test.sum())}건 중 통과(TN) {TN} 헛경보(FP) {FP}")
+print(f"재현율 {round(재현율, 3)} 정밀도 {round(정밀도, 3)}")
 
 
 # [F2] 실행 결과를 보고 답하세요.
@@ -274,7 +464,7 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #        (4) 그럼 애초에 어떤 단위로 나눴어야 했습니까? 한 줄로 적으세요.
 #      내 답:
 # TODO
-
+print("\nF2")
 
 # =====================================================================
 # G. 함정 2 — 불균형을 손으로 만들어 보기
@@ -305,7 +495,68 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #     (비교: 무조건 1호기라 답하면 정확도 0.848)
 #     (임계값 0.5 ~ 0.2 는 전부 같은 결과. 0.1 로 내리면 잡음 9 / 놓침 6 / 헛경보 30, 재현율 0.60 / 정밀도 0.23)
 # TODO
+print("\nG1")
 
+tr3 = np.concatenate([i1[:15], i0[:195]])
+te3 = np.concatenate([i1[195:210], i0[195:]])
+
+X_train = X[tr3]
+X_test = X[te3]
+
+y_train = y[tr3]
+y_test = y[te3]
+
+mu = X_train.mean(axis=0)
+sd = X_train.std(axis=0)
+
+Z_train = (X_train - mu) / sd
+Z_test = (X_test - mu) / sd
+
+print(
+    f"학습용 {len(X_train)}건 (2호기 {int(y_train.sum())}) 시험용 {len(X_test)}건 (2호기 {int(y_test.sum())})"
+)
+
+w, b = 학습(Z_train, y_train)
+
+order = np.argsort(np.abs(w))[::-1]
+
+print(f"가중치 (크기순) : ", end="")
+for idx in order:
+    print(f"{특징이름[idx]} {round(w[idx], 3)} / ", end="")
+print(f"\nb절편 : {round(b, 3)}")
+
+print(f"시험용 (임계값: 0.5)")
+
+p_test = 확률(Z_test, w, b)
+판정 = (p_test >= 0.5).astype(int)
+TP, FN, FP, TN = 네칸(y_test, 판정)
+
+재현율 = TP / (TP + FN) if TP + FN else 0
+정밀도 = TP / (TP + FP) if TP + FP else 0
+정확도 = np.mean(판정 == y_test)
+
+print(f"2호기 {int(y_test.sum())}건 중 잡음(TP) {TP} 놓침(FN) {FN}")
+print(f"1호기 {int(len(y_test) - y_test.sum())}건 중 통과(TN) {TN} 헛경보(FP) {FP}")
+print(f"재현율 {round(재현율, 2)} 정밀도 {round(정밀도, 2)}")
+
+판정 = np.zeros_like(p_test, dtype=int)
+TP, FN, FP, TN = 네칸(y_test, 판정)
+정확도 = np.mean(판정 == y_test)
+
+print(f"비교: 무조건 1호기라 답하면 정확도 {round(정확도, 3)}")
+
+판정 = (p_test >= 0.1).astype(int)
+TP, FN, FP, TN = 네칸(y_test, 판정)
+
+재현율 = TP / (TP + FN) if TP + FN else 0
+정밀도 = TP / (TP + FP) if TP + FP else 0
+정확도 = np.mean(판정 == y_test)
+
+print(
+    f"임계값 0.5 ~ 0.2는 전부 같은 결과. 0.1로 내리면 잡음 {TP} / 놓침 {FN} / 헛경보 {FP}, 재현율 {round(재현율, 2)} / 정밀도 {round(정밀도, 2)}"
+)
+
+#     (임계값 0.5 ~ 0.2 는 전부 같은 결과. 0.1 로 내리면 잡음 9 / 놓침 6 / 헛경보 30, 재현율 0.60 / 정밀도 0.23)
 
 # [G2] 답하세요.
 #        (1) 정확도가 D 보다 올랐습니까, 내렸습니까?
@@ -315,7 +566,7 @@ d = pd.read_csv(os.path.join(DATA, "T-SP-EXF01_진동특징.csv"), encoding="utf
 #            힌트 하나는 E 에서 이미 해 봤습니다.
 #      내 답:
 # TODO
-
+print("\nG2")
 
 # =====================================================================
 # H. 마무리 — 보고서 3줄
