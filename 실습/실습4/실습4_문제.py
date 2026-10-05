@@ -66,7 +66,11 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 # [나와야 하는 출력]  (숫자만 맞으면 됩니다. 출력 모양까지 똑같을 필요는 없습니다)
 #     X.shape: (570, 4) / y.shape: (570,)
 # TODO
+X = d[특징이름].values.astype(float)
+y = d["CUR-MTR_RMS"].values.astype(float)
 
+print(X.shape)
+print(y.shape)
 
 # =====================================================================
 # A. 실습 2 를 세 줄로 — 정말 같은 답이 나오는가
@@ -80,6 +84,21 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 # [나와야 하는 출력]
 #     학습용 399 건 / 시험용 171 건
 # TODO
+print("\nA1")
+
+order = np.random.RandomState(42).permutation(len(X))
+n_train = int(len(X) * 0.7)
+
+tr = order[:n_train]
+te = order[n_train:]
+
+X_train = X[tr]
+X_test = X[te]
+
+y_train = y[tr]
+y_test = y[te]
+
+print(f"학습용 : {n_train}건 / 시험용 : {len(X) - n_train}건")
 
 
 # [A2] 표준화와 선형회귀를 한 덩어리로 묶어 학습하고, 학습용·시험용 R2 를 찍으세요.
@@ -100,7 +119,18 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     학습용 R² 0.7982 / 시험용 R² 0.6070
 #     (실습 2 의 0.6080 과 0.001 차이. 경사하강 500걸음이 공식 답에 아직 살짝 못 미친 것)
 # TODO
+print("\nA2")
 
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
+pipe = make_pipeline(StandardScaler(), LinearRegression())
+
+pipe.fit(X_train, y_train)
+print(
+    f"학습용 R2 {round(pipe.score(X_train, y_train), 4)} / 시험용 R2 {round(pipe.score(X_test, y_test), 4)}"
+)
 
 # [A3] 학습된 가중치와 절편을 찍으세요.
 #      실습 2 의 값은 +24.69 / +14.97 / -5.91 / -18.96, b 112.640 이었습니다.
@@ -117,7 +147,11 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     VIB-TOP_RMS  w = -18.949
 #     절편 b = 112.640
 # TODO
+print("\nA3")
+find_col = ["VIB-BOT_RMS", "VIB-BOT_PTP", "VIB-BOT_KUR", "VIB-TOP_RMS"]
 
+for idx in range(len(find_col)):
+    print(f"{find_col[idx]} w = {round(pipe[1].coef_[idx], 3)}")
 
 # [A4] 이번엔 표준화를 빼고, 원래 눈금 그대로 선형회귀만 학습해 보세요.
 #
@@ -143,7 +177,16 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     절편 b = 57.344                            ← 가중치는 전혀 다름
 #     (참고: 원래 눈금 범위  BOT_RMS 0.02~0.45 / BOT_PTP 0.07~1.19 / BOT_KUR -4.36~10.59 / TOP_RMS 0.02~0.83)
 # TODO
+print("\nA4")
+pipe2 = make_pipeline(LinearRegression())
 
+pipe2.fit(X_train, y_train)
+print(
+    f"학습용 R2 {round(pipe2.score(X_train, y_train), 4)} / 시험용 R2 {round(pipe2.score(X_test, y_test), 4)}"
+)
+for idx in range(len(find_col)):
+    print(f"{find_col[idx]} w = {round(pipe2[0].coef_[idx], 3)}")
+print(f"절편 b = {round(pipe2[0].intercept_, 3)}")
 
 # =====================================================================
 # B. Pipeline — 실습 2 §B3 의 규칙을 도구가 대신 지킨다
@@ -161,7 +204,11 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     scaler.scale_ = [ 0.063   0.2084  0.8804  0.0784]   ← 손으로 구한 sd 와 같음
 #     (np.allclose 로 비교하면 True, True)
 # TODO
-
+print("\nB1")
+scaler = StandardScaler()
+scaler.fit(X_train)
+print(f"scaler.mean_ = {scaler.mean_.round(4)}")
+print(f"scaler.scale_ = {scaler.scale_.round(4)}")
 
 # [B2] 일부러 틀린 코드를 만들어 봅니다.
 #      표준화를 '전체 X 로' 한 다음(= 시험용까지 보고 자를 맞춘 다음) A1 의 분할로 자르고,
@@ -184,7 +231,18 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     가중치 [ 25.659  14.703  -6.475 -18.018]  b 111.872   (자가 달라져 가중치 숫자만 조금 다름)
 #     (참고: 전체 570건 평균 [0.1075 0.3694 -0.6923 0.0774] vs 학습용 399건 평균 [0.1092 0.375 -0.7263 0.0796])
 # TODO
+print("\nB2")
+scaler2 = StandardScaler()
+scaler2.fit(X)
+Z_train = scaler2.transform(X_train)
+Z_test = scaler2.transform(X_test)
 
+model = LinearRegression()
+model.fit(Z_train, y_train)
+print(
+    f"학습용 R2 {round(model.score(Z_train, y_train), 4)} / 시험용 R2 {round(model.score(Z_test, y_test), 4)}"
+)
+print(f"가중치 {model.coef_.round(3)} b {model.intercept_.round(3)}")
 
 # =====================================================================
 # C. 함정 1 — 도구가 바뀌어도 누수는 그대로다
@@ -215,7 +273,20 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     CUR-MTR_STD  w = +40.172
 #     절편 b = 112.640
 # TODO
+print("\nC1")
+특징이름2 = ["VIB-BOT_RMS", "VIB-BOT_PTP", "VIB-BOT_KUR", "VIB-TOP_RMS", "CUR-MTR_STD"]
+X_train5 = d[특징이름2].values.astype(float)[tr]
+X_test5 = d[특징이름2].values.astype(float)[te]
 
+
+pipe3 = make_pipeline(StandardScaler(), LinearRegression())
+pipe3.fit(X_train5, y_train)
+print(
+    f"학습용 R2 {round(pipe3.score(X_train5, y_train), 4)} / 시험용 R2 {round(pipe3.score(X_test5, y_test), 4)}"
+)
+for idx in range(len(특징이름2)):
+    print(f"{특징이름2[idx]} w = {round(pipe3[1].coef_[idx], 3)}")
+print(f"절편 b = {round(pipe3[1].intercept_, 3)}")
 
 # =====================================================================
 # D. 함정 2 — 분할을 바꾸면 점수가 바뀐다
@@ -239,7 +310,26 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #      777    0.7555     0.7658
 #     시험용 최소 0.7658 / 최대 0.8162 / 평균 0.7847   (최대-최소 0.0504)
 # TODO
+print("\nD1")
+from sklearn.model_selection import train_test_split
 
+seed_list = [0, 1, 2, 42, 777]
+test_score_list = []
+
+print(f"씨앗 학습용 R2 시험용 R2")
+for seed in seed_list:
+    X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(
+        X, y, test_size=0.3, random_state=seed
+    )
+    pipe4 = make_pipeline(StandardScaler(), LinearRegression())
+    pipe4.fit(X_train_s, y_train_s)
+    print(
+        f"{seed} {round(pipe4.score(X_train_s, y_train_s), 4)} {round(pipe4.score(X_test_s, y_test_s), 4)}"
+    )
+    test_score_list.append(pipe4.score(X_test_s, y_test_s))
+print(
+    f"시험용 최소 {round(min(test_score_list), 4)} / 최대 {round(max(test_score_list), 4)} / 평균 {round(sum(test_score_list) / len(test_score_list), 4)} (최대-최소 {round(max(test_score_list) - min(test_score_list), 4)})"
+)
 
 # [D2] 결과를 보고 답하세요.
 #        (1) 예상이 맞았나요? 시험용 R2 의 범위는 얼마에서 얼마입니까?
@@ -253,6 +343,7 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #            왜 이렇게 흔들립니까?
 #      내 답:
 # TODO
+print("\nD2")
 
 
 # =====================================================================
@@ -280,7 +371,15 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     평균 0.7839 / 최고-최저 0.1009
 #     (전체 570건을 넣으면 [0.6133 0.7701 0.7315 0.7739 0.6551] 평균 0.7088 이 나옵니다. 그건 틀린 것)
 # TODO
+print("\nE1")
+from sklearn.model_selection import cross_val_score, GridSearchCV
 
+cv = cross_val_score(
+    make_pipeline(StandardScaler(), LinearRegression()), X_train, y_train, cv=5
+)
+
+print(f"5조각 R2 : {cv.round(4)}")
+print(f"평균 {cv.mean().round(4)} / 최고-최저 {(cv.max() - cv.min()).round(4)}")
 
 # [E2] 이제 특징을 하나씩 빼면서 '교차검증 평균' 을 비교하세요. (4줄)
 #      ★ 시험용은 절대 쓰지 마세요 ★
@@ -301,6 +400,15 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     VIB-BOT_KUR 빼면 → CV 평균 0.7683
 #     VIB-TOP_RMS 빼면 → CV 평균 0.6406
 # TODO
+print("\nE2")
+for minus in range(4):
+    remain = [j for j in range(4) if j != minus]
+
+    M_train = X_train[:, remain]
+    cv = cross_val_score(
+        make_pipeline(StandardScaler(), LinearRegression()), M_train, y_train, cv=5
+    )
+    print(f"{특징이름[minus]} 빼면 -> cv 평균 {cv.mean().round(4)}")
 
 
 # [E3] 결과를 보고 답하세요. 여기가 오늘의 핵심입니다.
@@ -344,7 +452,16 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     10       0.7973     0.6118
 #     100      0.7616     0.5875
 # TODO
+print("\nF1")
+from sklearn.linear_model import Ridge
 
+alpha_list = [0.01, 0.1, 1, 10, 100]
+print(f" alpha   학습용 R2   시험용 R2")
+for alpha in alpha_list:
+    r = make_pipeline(StandardScaler(), Ridge(alpha=alpha)).fit(X_train, y_train)
+    print(
+        f"{alpha}   {round(r.score(X_train, y_train), 4)}   {round(r.score(X_test, y_test), 4)}"
+    )
 
 # [F2] 같은 자리에 Lasso 를 넣고 같은 alpha 들로 돌리세요.
 #      점수와 함께 가중치도 같이 찍으세요.
@@ -373,7 +490,18 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     100      0.0000    -0.0152     [  0.      0.      0.      0.   ]   ← 전부 0
 #     (절편 b 는 전부 112.640 = 학습용 y 의 평균)
 # TODO
+print("\nF2")
+from sklearn.linear_model import Lasso
 
+print(f" alpha   학습용 R2   시험용 R2 가중치 [BOT_RMS, BOT_PTP, BOT_KUR, TOP_RMS]")
+for alpha in alpha_list:
+    r = make_pipeline(StandardScaler(), Lasso(alpha=alpha, max_iter=100000)).fit(
+        X_train, y_train
+    )
+    w = r[1].coef_
+    print(
+        f"{alpha}   {round(r.score(X_train, y_train), 4)}   {round(r.score(X_test, y_test), 4)} {w.round(3)}"
+    )
 
 # [F3] 이제 alpha 를 '시험용을 안 보고' 고릅니다. (04 §7)
 #      후보는 F1 과 같은 다섯 개, 조각은 5개.
@@ -395,7 +523,18 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     그 모델의 시험용 R²: 0.6118
 #     (참고: 후보별 CV 평균  0.01 → 0.7839 / 0.1 → 0.7840 / 1 → 0.7849 / 10 → 0.7880 / 100 → 0.7407)
 # TODO
+print("\nF3")
+grid = GridSearchCV(
+    make_pipeline(StandardScaler(), Ridge()),
+    {"ridge__alpha": [0.01, 0.1, 1, 10, 100]},
+    cv=5,
+)
 
+grid.fit(X_train, y_train)
+
+print(f"고름 alpha : {grid.best_params_}")
+print(f"CV 평균 R2 : {round(grid.best_score_, 4)}")
+print(f"그 모델의 시험용 R2 :  {round(grid.score(X_test, y_test), 4)}")
 
 # =====================================================================
 # G. 배포 — 시간순 검증과 저장
@@ -423,6 +562,30 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     VIB-TOP_RMS  w = -24.976
 #     절편 b = 116.417
 # TODO
+print("\nG1")
+order = range(len(X))
+n_train = int(len(X) * 0.7)
+
+tr = order[:n_train]
+te = order[n_train:]
+
+X_train = X[tr]
+X_test = X[te]
+
+y_train = y[tr]
+y_test = y[te]
+
+pipe5 = make_pipeline(StandardScaler(), LinearRegression())
+
+pipe5.fit(X_train, y_train)
+
+print(
+    f"학습용 R2 {round(pipe5.score(X_train, y_train), 4)} / 시험용 R2 {round(pipe5.score(X_test, y_test), 4)}"
+)
+
+for idx in range(len(특징이름)):
+    print(f"{특징이름[idx]} w = {round(pipe5[1].coef_[idx], 3)}")
+print(f"절편 b = {round(pipe5[1].intercept_, 3)}")
 
 
 # [G1-2] 이번엔 위의 학습구간(앞 399건) 안에서만 교차검증을 돌리세요. E1 과 같은 도구입니다.
@@ -444,7 +607,16 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     (조각은 앞에서부터 80/80/80/80/79 행.  1조각 = 01-10 ~ 02-23,  2조각 = 02-24 ~ 04-11,
 #      3조각 = 04-11 ~ 05-27,  4조각 = 05-28 ~ 07-18,  5조각 = 07-19 ~ 09-02)
 # TODO
+print("\nG1-2")
 
+cv = cross_val_score(
+    make_pipeline(StandardScaler(), LinearRegression()), X_train, y_train, cv=5
+)
+
+print(
+    f"시간순 학습구간 5조각 R2 : {cv.round(4)} 평균 {cv.mean().round(4)} 최저 {cv.min().round(4)}"
+)
+# print(f"평균 {cv.mean().round(4)} / 최고-최저 {(cv.max() - cv.min()).round(4)}")
 
 # [G2] 마지막으로 배포 형태를 만드세요.
 #      F3 에서 고른 설정으로 '전체 데이터' 를 학습시킨 파이프라인을 파일로 저장하고,
@@ -465,7 +637,25 @@ d = pd.read_csv(os.path.join(DATA, "T-CR1-SPM01_압연특징.csv"), encoding="ut
 #     (참고: 각 열의 전체 평균 [0.107 0.369 -0.692 0.077] ← 새 측정값 네 개가 전부 평균 근처)
 #     (참고: 전체 학습 가중치 [13.831 25.012 -6.92 -20.458], b 111.292)
 # TODO
+print("\nG2")
 
+import joblib
+
+best_alpha = grid.best_params_["ridge__alpha"]
+final = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha)).fit(X, y)
+
+joblib.dump(final, "배포용.joblib")
+
+load = joblib.load("배포용.joblib")
+
+new_X = [[0.11, 0.38, -0.73, 0.08]]
+pred = load.predict(new_X)[0]
+
+print(f"예측 전류 : {pred:.2f} A")
+
+print(f"가중치 {load[1].coef_.round(3)} b {load[1].intercept_:.3f}")
+
+os.remove("배포용.joblib")
 
 # =====================================================================
 # H. 마무리 — 보고서 3줄
