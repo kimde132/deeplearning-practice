@@ -1,0 +1,585 @@
+# =====================================================================
+#  실습 3 — 진동만 보고 어느 배풍기인지 맞히기 (03 분류 · 로지스틱 회귀)
+# =====================================================================
+#  실행: python 실습3_문제_실무네이밍.py      (이 파일이 있는 폴더에서)
+#  필요한 것: numpy, pandas  /  데이터는 옆의 데이터/ 폴더에 들어 있습니다.
+#
+#  [상황]
+#    P제철 소결공장에 같은 기종 메인 배풍기가 두 대 있습니다. 1호기와 2호기.
+#    같은 기종이면 진동도 같아야 할까요? 정비팀은 "2호기가 좀 다르다" 고 말합니다.
+#    진동 특징만 보고 1호기인지 2호기인지 맞힐 수 있다면, 두 대의 진동 서명이
+#    실제로 다르다는 뜻이고 → 감시 기준선을 설비별로 따로 잡아야 합니다.
+#
+#    맞힐 대상(정답) = 2호기냐 아니냐.  2호기 = 1, 1호기 = 0.
+#    ※ 이 데이터엔 '고장' 라벨이 없습니다. 그래서 정답을 이렇게 잡았습니다.
+#      억지가 아니라 현장에서 실제로 던지는 질문이고, 도구는 03 과 100% 같습니다.
+#
+#  [쓰는 도구]  03 에서 배운 것 전부. 새 라이브러리 없습니다.
+#    sigmoid / 확률 / 로그손실 / 경사하강 / 임계값 / 혼동행렬 / 재현율 · 정밀도
+#    ※ 03_분류_로지스틱회귀.py 를 옆에 띄워 놓고 베껴 쓰세요. 그게 이 실습의 방식입니다.
+#
+#  [푸는 법]  TODO 를 위에서부터 하나씩 채우고, 그때그때 실행해서 숫자를 확인하세요.
+#             한 번에 다 짜고 실행하면 어디서 틀렸는지 못 찾습니다.
+# =====================================================================
+
+# =====================================================================
+#  [정답출력 참고]  각 항목의 [나와야 하는 출력] 은 이렇게 만든 값입니다
+# =====================================================================
+#  · 수업용코드 03 의 함수(sigmoid/predict_proba/bce_loss/numerical_gradient/train/confusion_counts, h=0.0001)를 한 글자도
+#    안 바꾸고 이 데이터에 돌린 값입니다. (numpy 2.5.3 / pandas 3.0.5 / 이 폴더의 venv)
+#  · 숫자만 같으면 맞은 겁니다. 출력 모양은 달라도 됩니다.
+#  · 03 의 train() 은 400 걸음마다 손실을 찍습니다. 그 줄들도 정답출력에 넣어 뒀으니
+#    epoch 0 / 400 / ... 손실이 같은지로 중간 확인이 됩니다. (epoch 0 은 한 걸음 걸은 뒤의 값)
+#  · [F1] 세션 단위 분할은 시험용 정확도 0.500, 잡음(TP) 0 이 나옵니다. 코드 오류가 아니라
+#    이 문제가 보여 주려는 결과입니다. 임계값을 내려도 거의 안 바뀝니다.
+#  · [G1] 은 임계값 0.5~0.2 가 전부 같은 결과입니다. 0.1 까지 내려야 달라집니다.
+# =====================================================================
+
+import os
+import numpy as np
+import pandas as pd
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "데이터")
+vib_df = pd.read_csv(os.path.join(DATA_DIR, "T-SP-EXF01_진동특징.csv"), encoding="utf-8-sig")
+# ↑ encoding="utf-8-sig" 빠뜨리면 첫 열 이름이 깨져서 KeyError 납니다.
+
+
+# =====================================================================
+# A. 데이터부터 본다  (모델 얘기는 아직 이르다)
+# =====================================================================
+# [A1] 표의 모양, 결측 개수, 그리고 설비(EQP_CD)별 행 수를 찍으세요.
+#      힌트: vib_df.shape / vib_df.isna().sum().sum() / vib_df["EQP_CD"].value_counts()
+#
+#      ★ 보고 나서 답하세요 ★
+#        1호기와 2호기 행 수가 몇 대 몇입니까?
+#        03 의 ai4i 는 고장 4% : 정상 96% 였죠. 여기는요?
+#      내 답:
+#
+# [나와야 하는 출력]  (숫자만 맞으면 됩니다. 출력 모양까지 똑같을 필요는 없습니다)
+#     모양: (558, 44)
+#     결측 개수: 0
+#     P1-SP1-EXF01    279
+#     P1-SP2-EXF01    279
+# TODO
+print("\nA1")
+print(vib_df.shape)
+print(vib_df.isnull().sum().sum())
+print(vib_df["EQP_CD"].value_counts())
+
+# [A2] 정답 y 와 입력 X 를 만드세요.
+#      y : 2호기면 1, 1호기면 0
+#          힌트: (vib_df["EQP_CD"] == "P1-SP2-EXF01").astype(float).values
+#      X : 아래 5개 특징
+feature_names = [
+    "VIB-MDE_1X",  # 전동기 구동단, 1차 회전성분
+    "VIB-MNDE_RMS",  # 전동기 반구동단, 실효값
+    "VIB-FNDE_RMS",  # 팬 반구동단, 실효값
+    "VIB-MDE_NSY",  # 전동기 구동단, 비동기 성분비
+    "VIB-MDE_HF",  # 전동기 구동단, 고주파 에너지
+]
+#      X.shape 가 (558, 5), y.shape 가 (558,) 인지 확인하세요.
+#
+# [나와야 하는 출력]
+#     X.shape: (558, 5) / y.shape: (558,)      (y 의 합 = 279 → 2호기 279건)
+# TODO
+print("\nA2")
+
+X = vib_df[feature_names].values.astype(float)
+y = (vib_df["EQP_CD"] == "P1-SP2-EXF01").astype(float).values
+
+print(X.shape)
+print(y.shape)
+
+# [A3] 특징 5개 각각에 대해 1호기 평균과 2호기 평균을 나란히 찍으세요.
+#      힌트: vib_df[y == 0][name].mean() 과 vib_df[y == 1][name].mean() 을 for 문으로
+#
+#      ★ 답하세요 ★
+#        (1) 두 호기 차이가 제일 큰 특징은 무엇입니까?
+#        (2) 03 에서 고장 설비의 공구마모는 224, 정상은 113 — 두 배 차이였습니다.
+#            여기 차이는 그만큼 뚜렷한가요? 점수가 몇 % 쯤 나올 것 같습니까?
+#      내 예상:
+#
+# [나와야 하는 출력]
+#     VIB-MDE_1X     1호기 0.1995   2호기 0.1325
+#     VIB-MNDE_RMS   1호기 1.0313   2호기 0.9013
+#     VIB-FNDE_RMS   1호기 1.2292   2호기 0.9356
+#     VIB-MDE_NSY    1호기 0.4756   2호기 0.5958
+#     VIB-MDE_HF     1호기 0.2133   2호기 0.2612
+# TODO
+print("\nA3")
+
+for name in feature_names:
+    print(
+        f"{name:<13} 1호기 : {round(vib_df[y == 0][name].mean(), 4)}  2호기 : {round(vib_df[y == 1][name].mean(), 4)}"
+    )
+
+# =====================================================================
+# B. 나누고 표준화 — 03 에서 한 것과 똑같이
+# =====================================================================
+# [B1] 03 에서 고장·정상을 따로 나눴던 것처럼, '양쪽 편을 따로' 섞어서 7:3 으로 나누세요.
+#      (여기선 반반이라 그냥 섞어도 큰일은 안 나지만, 습관을 들이는 게 목적입니다)
+#      RandomState(3) 을 쓰면 정답지와 숫자가 똑같이 나옵니다.
+#
+#      힌트 — 03 의 나누는 대목에서 이름만 바꾸면 됩니다:
+#        rng = np.random.RandomState(3)
+#        pos_idx = rng.permutation(np.where(y == 1)[0])   # 2호기 279건
+#        neg_idx = rng.permutation(np.where(y == 0)[0])   # 1호기 279건
+#        train_idx = np.concatenate([pos_idx[:195], neg_idx[:195]])
+#        test_idx = np.concatenate([pos_idx[195:], neg_idx[195:]])
+#      학습용 몇 건(2호기 몇), 시험용 몇 건(2호기 몇) 인지 찍으세요.
+#
+# [나와야 하는 출력]
+#     학습용 390 건 (2호기 195) / 시험용 168 건 (2호기 84)
+# TODO
+print("\nB1")
+
+rng = np.random.RandomState(3)
+pos_idx = rng.permutation(np.where(y == 1)[0])
+neg_idx = rng.permutation(np.where(y == 0)[0])
+train_idx = np.concatenate([pos_idx[: int(len(pos_idx) * 0.7)], neg_idx[: int(len(neg_idx) * 0.7)]])
+test_idx = np.concatenate([pos_idx[int(len(pos_idx) * 0.7) :], neg_idx[int(len(neg_idx) * 0.7) :]])
+
+print(
+    f"학습용 {len(train_idx)}건 (2호기 {int(len(pos_idx) * 0.7)}) / 시험용 {len(test_idx)}건 (2호기 {int(len(pos_idx) - int(len(pos_idx) * 0.7))})"
+)
+
+# [B2] 열별 표준화. ★ x_mean 과 x_std 는 학습용에서만 구합니다 ★ (지금까지와 같은 규칙)
+#      시험용도 학습용의 x_mean, x_std 로 변환합니다.
+#
+# [나와야 하는 출력]
+#     x_mean = [0.1666 0.9653 1.0808 0.5323 0.2368]
+#     x_std = [0.1168 0.5257 0.5185 0.2324 0.1239]
+#     표준화 후 학습용 열별 평균: [0. 0. 0. 0. 0.] / 퍼짐: [1. 1. 1. 1. 1.]
+#     표준화 후 시험용 열별 평균: [-0.018  0.006  0.01   0.048  0.013]
+# TODO
+print("\nB2")
+
+X_train = X[train_idx]
+X_test = X[test_idx]
+
+y_train = y[train_idx]
+y_test = y[test_idx]
+
+x_mean = X_train.mean(axis=0)
+x_std = X_train.std(axis=0)
+
+Z_train = (X_train - x_mean) / x_std
+Z_test = (X_test - x_mean) / x_std
+
+print(f"x_mean = {x_mean.round(4)}")
+print(f"x_std = {x_std.round(4)}")
+print(
+    f"표준화 후 학습용 열별 평균 : {Z_train.mean(axis=0).round(3)} / 퍼짐 : {Z_train.std(axis=0).round(3)}"
+)
+print(f"표준화 후 시험용 열별 평균 : {Z_test.mean(axis=0).round(3)}")
+
+# =====================================================================
+# C. 학습 — 03 의 함수를 그대로 가져다 쓰세요
+# =====================================================================
+# [C1] sigmoid / predict_proba / bce_loss / numerical_gradient / train / confusion_counts 를 03 에서 복사해 오세요.
+#      한 글자도 안 바꿔도 됩니다. h = 0.0001 도 같이 가져와야 합니다.
+#
+#      ★ 자주 나는 실수 ★ bce_loss() 는 predict_proba() 를 부르고, predict_proba() 는 sigmoid() 를 부릅니다.
+#                        셋 다 가져와야 해요. 하나만 빠뜨리면 NameError.
+#
+# [나와야 하는 출력]
+#     출력 없음. sigmoid / predict_proba / bce_loss / numerical_gradient / train / confusion_counts 여섯 개와 h = 0.0001 이 정의되면 됩니다.
+# TODO
+print("\nC1")
+
+
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+
+def predict_proba(Z, w, b):
+    return sigmoid(Z @ w + b)
+
+
+def bce_loss(Z, y, w, b):
+    p = np.clip(predict_proba(Z, w, b), 1e-12, 1 - 1e-12)
+    return -np.mean(y * np.log(p) + (1 - y) * np.log(1 - p))
+
+
+h = 0.0001
+
+
+def numerical_gradient(Z, y, w, b):  # 02 4번와 동일 (편미분 5번 = 그래디언트)
+    grad_w = np.zeros(len(w))
+    for j in range(len(w)):
+        w_plus, w_minus = w.copy(), w.copy()
+        w_plus[j] += h
+        w_minus[j] -= h
+        grad_w[j] = (bce_loss(Z, y, w_plus, b) - bce_loss(Z, y, w_minus, b)) / (2 * h)
+    grad_b = (bce_loss(Z, y, w, b + h) - bce_loss(Z, y, w, b - h)) / (2 * h)
+    return grad_w, grad_b
+
+
+def train(Z, y, lr=0.5, epochs=2000, verbose=True):
+    w = np.zeros(Z.shape[1])
+    b = 0.0
+    for epoch in range(epochs):
+        grad_w, grad_b = numerical_gradient(Z, y, w, b)
+        w = w - lr * grad_w
+        b = b - lr * grad_b
+        if (
+            verbose and epoch % 400 == 0
+        ):  # 400 바퀴마다 손실 출력. % = 나머지, 400 으로 나눠 떨어질 때만
+            print(f"    epoch {epoch:4d}  손실 {bce_loss(Z, y, w, b):.4f}")
+    return w, b
+
+
+def confusion_counts(y, y_pred):
+    TP = int(((y == 1) & (y_pred == 1)).sum())
+    FN = int(((y == 1) & (y_pred == 0)).sum())
+    FP = int(((y == 0) & (y_pred == 1)).sum())
+    TN = int(((y == 0) & (y_pred == 0)).sum())  # .sum() 으로 True 개수 세기
+    return TP, FN, FP, TN
+
+
+# [C2] 학습용으로 train(lr=0.5, epochs=2000)하고, 특징별 가중치를 크기순으로 찍으세요.
+#
+#      ★ 답하세요 ★
+#        손실이 몇에서 시작해 몇까지 내려갔습니까?
+#        03 에서는 0.5933 → 0.1157 이었습니다. 여기는요? 이 차이가 뜻하는 게 뭘까요?
+#        힌트: 손실 0.693 이 "전부 반반이라고 답하는 상태" 입니다. 0 에 가까울수록 확신 있게 맞히는 것.
+#      내 답:
+#
+# [나와야 하는 출력]
+#     (시작 손실 = w, b 가 전부 0 일 때 0.6931)
+#     epoch    0  손실 0.6648
+#     epoch  400  손실 0.5146
+#     epoch  800  손실 0.5076
+#     epoch 1200  손실 0.5064
+#     epoch 1600  손실 0.5062
+#     (2000 걸음 후 손실 0.5062)
+#     표준화 눈금 가중치 (크기순):
+#       VIB-FNDE_RMS  -4.515  클수록 2호기 확률 ↓
+#       VIB-MDE_HF    +2.475  클수록 2호기 확률 ↑
+#       VIB-MDE_NSY   -2.109  클수록 2호기 확률 ↓
+#       VIB-MDE_1X    +0.688  클수록 2호기 확률 ↑
+#       VIB-MNDE_RMS  -0.303  클수록 2호기 확률 ↓
+#     (절편 b = -0.043)
+# TODO
+print("\nC2")
+
+w, b = train(Z_train, y_train)
+
+print(f"2000 걸음 후 손실 : {round(bce_loss(Z_train, y_train, w, b), 3)}")
+
+rank_idx = np.argsort(np.abs(w))[::-1]
+
+print("표준화 눈금 가중치 (크기순)")
+
+for idx in rank_idx:
+    print(
+        f"{feature_names[idx]:<13} {round(w[idx], 3):>8}   클수록 2호기 확률 {'↓' if w[idx] < 0 else '↑'}"
+    )
+print(f"(절편 b = {round(b, 3)})")
+
+# =====================================================================
+# D. 채점 — 정확도 하나만 보면 안 된다
+# =====================================================================
+# [D1] 시험용 확률을 구하고, 임계값 0.5 로 판정한 뒤
+#      정확도 / TP(잡음) / FN(놓침) / FP(헛경보) / TN(통과) / 재현율 / 정밀도를 찍으세요.
+#      힌트: 03 의 혼동행렬 대목을 그대로. confusion_counts() 함수를 쓰면 네 줄로 끝납니다.
+#
+# [나와야 하는 출력]  (시험용 168건: 2호기 84 / 1호기 84)
+#     정확도: 0.744
+#     2호기 84건 중  잡음(TP) 69  놓침(FN) 15
+#     1호기 84건 중  통과(TN) 56  헛경보(FP) 28
+#     재현율 0.82  정밀도 0.71
+# TODO
+print("\nD1")
+
+p_test = predict_proba(Z_test, w, b)
+y_pred = (p_test >= 0.5).astype(int)
+TP, FN, FP, TN = confusion_counts(y_test, y_pred)
+
+recall = TP / (TP + FN) if TP + FN else 0
+precision = TP / (TP + FP) if TP + FP else 0
+accuracy = np.mean(y_pred == y_test)
+print(
+    f"정확도 : {round(accuracy, 3)}\n2호기 {int(y_test.sum())}건 중 잡음(TP) {TP} 놓침(FN) {FN}\n1호기 {int(len(y_test) - y_test.sum())}건 중 통과(TN) {TN} 헛경보(FP) {FP}\n재현율 {round(recall, 2)} 정밀도 {round(precision, 2)}"
+)
+
+
+# [D2] 비교용으로 '무조건 1호기라고만 답하는' 게으른 모델의 정확도를 찍으세요.
+#      힌트: np.zeros_like(y_test, dtype=int)
+#
+#      ★ 답하세요 — 오늘 제일 중요한 질문입니다 ★
+#        (1) 게으른 모델의 정확도가 몇입니까?
+#        (2) 03 의 ai4i 에서는 게으른 모델이 정확도 96.7% 였습니다. 여기는 왜 다를까요?
+#        (3) 그럼 "정확도는 믿을 수 없다" 는 교훈은 틀린 건가요?
+#            한 단어를 앞에 붙이면 맞는 문장이 됩니다. 그 단어는?
+#      내 답: (1)
+#             (2)
+#             (3)
+#
+# [나와야 하는 출력]
+#     무조건 1호기라 답하면 → 정확도 0.500, 재현율 0.00
+# TODO
+print("\nD2")
+
+lazy_pred = np.zeros_like(y_test, dtype=int)
+
+TP, FN, FP, TN = confusion_counts(y_test, lazy_pred)
+
+recall = TP / (TP + FN) if TP + FN else 0
+precision = TP / (TP + FP) if TP + FP else 0
+accuracy = np.mean(lazy_pred == y_test)
+
+print(f"무조건 1호기라 답하면 -> 정확도 {accuracy}, 재현율 {recall}")
+
+# =====================================================================
+# E. 임계값
+# =====================================================================
+# [E1] 임계값 0.5 / 0.4 / 0.3 / 0.2 로 바꿔 가며 잡음·놓침·헛경보·재현율·정밀도를 표로 찍으세요.
+#
+#      ★ 답하세요 ★
+#        재현율과 정밀도가 각각 어느 방향으로 움직입니까?
+#        정확도가 제일 높은 임계값과, 재현율이 제일 높은 임계값이 다릅니다.
+#        현장에 내보낸다면 어느 쪽을 고르시겠습니까? 그 판단의 근거는 데이터입니까, 비용입니까?
+#      내 답:
+#
+# [나와야 하는 출력]
+#     임계값  잡음  놓침  헛경보  재현율  정밀도   (정확도)
+#     0.5      69    15     28    0.82    0.71    (0.744)
+#     0.4      75     9     39    0.89    0.66    (0.714)
+#     0.3      80     4     47    0.95    0.63    (0.696)
+#     0.2      82     2     51    0.98    0.62    (0.685)
+# TODO
+print("\nE1")
+
+thresholds = [0.5, 0.4, 0.3, 0.2]
+
+print(f"임계값    잡음    놓침    헛경보    재현률    정밀도    (정확도)")
+
+for threshold in thresholds:
+    p_test = predict_proba(Z_test, w, b)
+    y_pred = (p_test >= threshold).astype(int)
+    TP, FN, FP, TN = confusion_counts(y_test, y_pred)
+
+    recall = TP / (TP + FN) if TP + FN else 0
+    precision = TP / (TP + FP) if TP + FP else 0
+    accuracy = np.mean(y_pred == y_test)
+
+    print(
+        f"{threshold}        {TP}       {FN}       {FP}      {round(recall, 2)}      {round(precision, 2)}      ({round(accuracy, 3)})"
+    )
+
+# =====================================================================
+# F. 함정 1 — "이 558행은 정말 558번의 독립된 관측인가"
+# =====================================================================
+# 데이터사전을 보면 이 표의 한 행은 '세그먼트'(파형 2초 구간)입니다.
+# 그리고 SESS_ID(계측세션)는 딱 8종 — 호기당 4번씩 계측한 겁니다.
+# 즉 한 세션에서 69~70조각이 나왔습니다. 같은 세션의 조각들은 서로 거의 같은 데이터예요.
+# 직접 확인해 보세요: vib_df.groupby("SESS_ID").size()
+#
+# [F1] 이번엔 행이 아니라 '세션 단위'로 나눠 보세요.
+#      SP1-04 와 SP2-04 세션을 통째로 시험용으로 빼고, 나머지 6개 세션으로 학습합니다.
+#      (표준화도 이 새 학습용으로 다시 해야 합니다)
+#
+#      코드를 그대로 드립니다 — 분할만 바뀌고 나머지는 C·D 와 똑같습니다:
+#        sessions = vib_df["SESS_ID"].values
+#        test_sessions = ["V24-SP1-04", "V24-SP2-04"]
+#        train_idx_sess = np.where(~np.isin(sessions, test_sessions))[0]
+#        test_idx_sess = np.where(np.isin(sessions, test_sessions))[0]
+#      ★ 먼저 예상하고 적으세요. 실행은 그다음에. ★
+#        D 에서 나온 점수보다 조금 떨어질까요? 비슷할까요?
+#      내 예상:
+#
+# [나와야 하는 출력]
+#     (참고: vib_df.groupby("SESS_ID").size() → SP1-01 70, SP1-02 69, SP1-03 70, SP1-04 70,
+#            SP2-01 70, SP2-02 69, SP2-03 70, SP2-04 70)
+#     학습용 418 건 (2호기 209) / 시험용 140 건 (2호기 70)
+#     epoch    0  손실 0.6541
+#     epoch  400  손실 0.5193
+#     epoch  800  손실 0.5123
+#     epoch 1200  손실 0.5089
+#     epoch 1600  손실 0.5068
+#     가중치 (크기순): VIB-FNDE_RMS -4.027 / VIB-MNDE_RMS +3.153 / VIB-MDE_1X -1.154
+#                     / VIB-MDE_HF +0.968 / VIB-MDE_NSY -0.433
+#     시험용 (임계값 0.5)
+#       정확도: 0.500
+#       2호기 70건 중  잡음(TP) 0   놓침(FN) 70
+#       1호기 70건 중  통과(TN) 70  헛경보(FP) 0
+#       재현율 0.00  정밀도 0.00
+#     (임계값을 0.2 까지 내려도 잡음 1 / 헛경보 1. 거의 안 바뀝니다.
+#      학습용 자체 점수도 정확도 0.610 / 재현율 0.64 밖에 안 됩니다)
+# TODO
+print("\nF1")
+
+sessions = vib_df["SESS_ID"].values
+test_sessions = ["V24-SP1-04", "V24-SP2-04"]
+train_idx_sess = np.where(~np.isin(sessions, test_sessions))[0]
+test_idx_sess = np.where(np.isin(sessions, test_sessions))[0]
+
+Xs_train = X[train_idx_sess]
+Xs_test = X[test_idx_sess]
+
+ys_train = y[train_idx_sess]
+ys_test = y[test_idx_sess]
+
+x_mean = Xs_train.mean(axis=0)
+x_std = Xs_train.std(axis=0)
+
+Zs_train = (Xs_train - x_mean) / x_std
+Zs_test = (Xs_test - x_mean) / x_std
+
+print(
+    f"학습용 {len(Xs_train)} 건 (2호기 {int(ys_train.sum())}) / 시험용 {len(Xs_test)}건 (2호기 {int(ys_test.sum())})"
+)
+
+w, b = train(Zs_train, ys_train)
+
+rank_idx = np.argsort(np.abs(w))[::-1]
+
+print(f"가중치(크기순) : ", end="")
+for idx in rank_idx:
+    print(f"{feature_names[idx]} {round(w[idx], 3)} / ", end="")
+
+print(f"\n시험용 임계값 (0.5)")
+
+ps_test = predict_proba(Zs_test, w, b)
+y_pred = (ps_test >= 0.5).astype(int)
+TP, FN, FP, TN = confusion_counts(ys_test, y_pred)
+
+recall = TP / (TP + FN) if TP + FN else 0
+precision = TP / (TP + FP) if TP + FP else 0
+accuracy = np.mean(y_pred == ys_test)
+
+print(f"2호기 {int(ys_test.sum())}건 중 잡음(TP) {TP} 놓침(FN) {FN}")
+print(f"1호기 {int(ys_test.sum())}건 중 통과(TN) {TN} 헛경보(FP) {FP}")
+print(f"재현율 {round(recall, 3)} 정밀도 {round(precision, 3)}")
+
+
+# [F2] 실행 결과를 보고 답하세요.
+#        (1) 정확도와 재현율이 몇으로 나왔습니까?
+#        (2) 그럼 D 에서 나온 점수는 무엇이었습니까? 모델은 대체 뭘 배운 걸까요?
+#            힌트: 학습용에 SP2-01 세션의 30번 조각이 있고,
+#                  시험용에 같은 세션의 31번 조각이 있으면 — 그건 시험일까요?
+#        (3) 이런 걸 '누수(leakage)' 라고 합니다. 실습 2 의 누수와 뭐가 다릅니까?
+#            (실습 2 는 '쓰면 안 되는 열'이 샌 것이었습니다. 여기는요?)
+#        (4) 그럼 애초에 어떤 단위로 나눴어야 했습니까? 한 줄로 적으세요.
+#      내 답:
+# TODO
+print("\nF2")
+
+# =====================================================================
+# G. 함정 2 — 불균형을 손으로 만들어 보기
+# =====================================================================
+# 현장에서는 점검 대상 설비의 데이터가 원래 드뭅니다. 반반인 게 오히려 인공적이에요.
+#
+# [G1] 학습용에 2호기를 15건만 넣고(1호기는 195건 그대로) 다시 학습·채점하세요.
+#      시험용도 불균형하게: 2호기 15건 + 1호기 84건.
+#        train_idx_imb = np.concatenate([pos_idx[:15], neg_idx[:195]])
+#        test_idx_imb = np.concatenate([pos_idx[195:210], neg_idx[195:]])
+#      ★ 표준화를 다시 하세요. C 의 x_mean, x_std 를 재사용하면 안 됩니다 (학습용이 바뀌었으니까).
+#
+# [나와야 하는 출력]
+#     학습용 210 건 (2호기 15) / 시험용 99 건 (2호기 15)
+#     epoch    0  손실 0.6060
+#     epoch  400  손실 0.2196
+#     epoch  800  손실 0.2150
+#     epoch 1200  손실 0.2128
+#     epoch 1600  손실 0.2114
+#     가중치 (크기순): VIB-FNDE_RMS -3.599 / VIB-MNDE_RMS +2.277 / VIB-MDE_HF +0.917
+#                     / VIB-MDE_NSY -0.431 / VIB-MDE_1X -0.053
+#     절편 b = -3.241
+#     시험용 (임계값 0.5)
+#       정확도: 0.869
+#       2호기 15건 중  잡음(TP) 2   놓침(FN) 13
+#       1호기 84건 중  통과(TN) 84  헛경보(FP) 0
+#       재현율 0.13  정밀도 1.00
+#     (비교: 무조건 1호기라 답하면 정확도 0.848)
+#     (임계값 0.5 ~ 0.2 는 전부 같은 결과. 0.1 로 내리면 잡음 9 / 놓침 6 / 헛경보 30, 재현율 0.60 / 정밀도 0.23)
+# TODO
+print("\nG1")
+
+train_idx_imb = np.concatenate([pos_idx[:15], neg_idx[:195]])
+test_idx_imb = np.concatenate([pos_idx[195:210], neg_idx[195:]])
+
+X_train = X[train_idx_imb]
+X_test = X[test_idx_imb]
+
+y_train = y[train_idx_imb]
+y_test = y[test_idx_imb]
+
+x_mean = X_train.mean(axis=0)
+x_std = X_train.std(axis=0)
+
+Z_train = (X_train - x_mean) / x_std
+Z_test = (X_test - x_mean) / x_std
+
+print(
+    f"학습용 {len(X_train)}건 (2호기 {int(y_train.sum())}) 시험용 {len(X_test)}건 (2호기 {int(y_test.sum())})"
+)
+
+w, b = train(Z_train, y_train)
+
+rank_idx = np.argsort(np.abs(w))[::-1]
+
+print(f"가중치 (크기순) : ", end="")
+for idx in rank_idx:
+    print(f"{feature_names[idx]} {round(w[idx], 3)} / ", end="")
+print(f"\nb절편 : {round(b, 3)}")
+
+print(f"시험용 (임계값: 0.5)")
+
+p_test = predict_proba(Z_test, w, b)
+y_pred = (p_test >= 0.5).astype(int)
+TP, FN, FP, TN = confusion_counts(y_test, y_pred)
+
+recall = TP / (TP + FN) if TP + FN else 0
+precision = TP / (TP + FP) if TP + FP else 0
+accuracy = np.mean(y_pred == y_test)
+
+print(f"2호기 {int(y_test.sum())}건 중 잡음(TP) {TP} 놓침(FN) {FN}")
+print(f"1호기 {int(len(y_test) - y_test.sum())}건 중 통과(TN) {TN} 헛경보(FP) {FP}")
+print(f"재현율 {round(recall, 2)} 정밀도 {round(precision, 2)}")
+
+y_pred = np.zeros_like(p_test, dtype=int)
+TP, FN, FP, TN = confusion_counts(y_test, y_pred)
+accuracy = np.mean(y_pred == y_test)
+
+print(f"비교: 무조건 1호기라 답하면 정확도 {round(accuracy, 3)}")
+
+y_pred = (p_test >= 0.1).astype(int)
+TP, FN, FP, TN = confusion_counts(y_test, y_pred)
+
+recall = TP / (TP + FN) if TP + FN else 0
+precision = TP / (TP + FP) if TP + FP else 0
+accuracy = np.mean(y_pred == y_test)
+
+print(
+    f"임계값 0.5 ~ 0.2는 전부 같은 결과. 0.1로 내리면 잡음 {TP} / 놓침 {FN} / 헛경보 {FP}, 재현율 {round(recall, 2)} / 정밀도 {round(precision, 2)}"
+)
+
+#     (임계값 0.5 ~ 0.2 는 전부 같은 결과. 0.1 로 내리면 잡음 9 / 놓침 6 / 헛경보 30, 재현율 0.60 / 정밀도 0.23)
+
+# [G2] 답하세요.
+#        (1) 정확도가 D 보다 올랐습니까, 내렸습니까?
+#        (2) 재현율은요? 2호기 15건 중 몇 건을 잡았습니까?
+#        (3) 정확도는 올랐는데 쓸모는 없어졌습니다. 왜 이런 일이 생깁니까?
+#        (4) 이걸 고치려면 뭘 할 수 있을까요? 최소 두 가지.
+#            힌트 하나는 E 에서 이미 해 봤습니다.
+#      내 답:
+# TODO
+print("\nG2")
+
+# =====================================================================
+# H. 마무리 — 보고서 3줄
+# =====================================================================
+# 정비팀장에게 보고한다고 치고, 아래 세 줄을 채우세요.
+#
+#   1) 진동 특징만으로 1호기와 2호기를 구분할 수 있는가? (된다/안 된다/모르겠다)
+#      근거로 드는 점수는 D 의 것입니까, F 의 것입니까? 왜 그쪽입니까?
+#
+#   2) 이 모델을 쓸 때 반드시 붙여야 할 경고 문구 한 줄:
+#
+#   3) 점수를 올리려면 다음에 뭘 하겠는가? (한 가지만, 이유와 함께)
+#      ※ "특징을 더 넣는다" 라고 쓰기 전에 F 를 다시 보세요.
+#        지금 부족한 게 특징입니까, 다른 겁니까?
+#
+# =====================================================================
