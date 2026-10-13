@@ -45,8 +45,8 @@ def sigmoid(z):
 
 def sigmoid_도함수_a(a):
     """★ 인자 규약 주의 ★ 이 함수는 이미 구해 둔 '출력 a'를 받습니다.
-       §9 에서 나올 sigmoid_도함수_z 는 'z'를 받아 안에서 a 를 구해요.
-       식은 σ'(z) = a(1-a) 로 같지만 넣는 게 다릅니다. 이름을 일부러 다르게 지어 뒀습니다."""
+    §9 에서 나올 sigmoid_도함수_z 는 'z'를 받아 안에서 a 를 구해요.
+    식은 σ'(z) = a(1-a) 로 같지만 넣는 게 다릅니다. 이름을 일부러 다르게 지어 뒀습니다."""
     return a * (1 - a)
 
 
@@ -68,19 +68,21 @@ def sigmoid_도함수_a(a):
 # 이렇게 담으면 층이 2개든 10개든 코드가 안 바뀝니다. for 로 리스트 길이만큼 돌면 되니까요.
 # ★ 이게 A부의 전부입니다 ★
 
-온도 = np.array([10, 15, 20, 25, 30, 35, 40], dtype=float)     # 08·09 의 그 U자 데이터
-불량 = np.array([9,  5,  2,  1,  2,  5,  9], dtype=float)
+온도 = np.array([10, 15, 20, 25, 30, 35, 40], dtype=float)  # 08·09 의 그 U자 데이터
+불량 = np.array([9, 5, 2, 1, 2, 5, 9], dtype=float)
 
 
 def 층만들기(구조, seed=0):
     """각 층의 뉴런 수를 리스트로 주면, 층마다 (W, b) 를 만듭니다.
-         구조=[1, 6, 6, 1]  →  입력1 → 은닉6 → 은닉6 → 출력1 (은닉층 2개)
-       이웃한 두 숫자가 한 층의 (입력 수, 출력 수) 가 됩니다."""
+      구조=[1, 6, 6, 1]  →  입력1 → 은닉6 → 은닉6 → 출력1 (은닉층 2개)
+    이웃한 두 숫자가 한 층의 (입력 수, 출력 수) 가 됩니다."""
     np.random.seed(seed)
     층 = []
-    for 들어옴, 나감 in zip(구조[:-1], 구조[1:]):      # ★ 문법 ★ 리스트를 한 칸 밀어 짝짓는 관용구
-        W = np.random.randn(들어옴, 나감) * 0.5       # (들어옴×나감) 가중치 행렬
-        b = np.zeros((1, 나감))                     # (1×나감) 편향
+    for 들어옴, 나감 in zip(
+        구조[:-1], 구조[1:]
+    ):  # ★ 문법 ★ 리스트를 한 칸 밀어 짝짓는 관용구
+        W = np.random.randn(들어옴, 나감) * 0.5  # (들어옴×나감) 가중치 행렬
+        b = np.zeros((1, 나감))  # (1×나감) 편향
         층.append([W, b])
     return 층
 
@@ -95,18 +97,20 @@ for i, (W, b) in enumerate(망):
 
 def 순전파(X, 층):
     """09 의 순전파를 for 로 감싼 것뿐입니다.
-       앞 층의 출력 A 가 다음 층의 입력이 되어 '릴레이'처럼 흐릅니다."""
+    앞 층의 출력 A 가 다음 층의 입력이 되어 '릴레이'처럼 흐릅니다."""
     A = X
-    활성화들 = [X]                        # A0=X 부터 저장 (역전파에서 각 층 입력으로 씀 — 09 §1 의 원칙)
+    활성화들 = [X]  # A0=X 부터 저장 (역전파에서 각 층 입력으로 씀 — 09 §1 의 원칙)
     마지막 = len(층) - 1
     for l, (W, b) in enumerate(층):
-        Z = A @ W + b                    # 선형: 앞 층 출력 @ 이번 층 가중치
-        A = Z if l == 마지막 else sigmoid(Z)   # 출력층만 활성화 없이 선형 (회귀니까)
+        Z = A @ W + b  # 선형: 앞 층 출력 @ 이번 층 가중치
+        A = Z if l == 마지막 else sigmoid(Z)  # 출력층만 활성화 없이 선형 (회귀니까)
         활성화들.append(A)
-    return A, 활성화들                     # A=최종예측, 활성화들=각 층 출력 모음
+    return A, 활성화들  # A=최종예측, 활성화들=각 층 출력 모음
 
 
-z = ((온도 - 온도.mean()) / 온도.std()).reshape(-1, 1)     # 표준화 (09 §6 의 그 이유로 필수)
+z = ((온도 - 온도.mean()) / 온도.std()).reshape(
+    -1, 1
+)  # 표준화 (09 §6 의 그 이유로 필수)
 Y = 불량.reshape(-1, 1)
 y_hat0, _ = 순전파(z, 망)
 print()
@@ -117,20 +121,24 @@ print(f"    예측 앞 3개: {np.round(y_hat0.ravel()[:3], 4)}")
 
 def 역전파(Y, 활성화들, 층):
     """★ A부의 심장 ★
-       09 에서 '한 층'을 거슬러 오는 걸 손으로 짰죠. 층이 여러 개면 그걸 층마다 반복합니다.
-       핵심 도구는 delta = ∂L/∂z (그 층 선형출력에 대한 손실 기울기).
-       delta 만 손에 쥐면 그 층의 가중치 기울기가 바로 나옵니다.
-         출력층 씨앗 : delta = 2(ŷ - y)/n              ← 09 의 그 씨앗
-         한 층 앞으로: delta ← (delta @ Wᵀ) ⊙ σ'(a)    ← 09 마디2 + 마디3 을 합친 것
-         가중치 기울기: dW = A_입력ᵀ @ delta,  db = Σ delta   ← 09 마디1 · 마디4"""
+    09 에서 '한 층'을 거슬러 오는 걸 손으로 짰죠. 층이 여러 개면 그걸 층마다 반복합니다.
+    핵심 도구는 delta = ∂L/∂z (그 층 선형출력에 대한 손실 기울기).
+    delta 만 손에 쥐면 그 층의 가중치 기울기가 바로 나옵니다.
+      출력층 씨앗 : delta = 2(ŷ - y)/n              ← 09 의 그 씨앗
+      한 층 앞으로: delta ← (delta @ Wᵀ) ⊙ σ'(a)    ← 09 마디2 + 마디3 을 합친 것
+      가중치 기울기: dW = A_입력ᵀ @ delta,  db = Σ delta   ← 09 마디1 · 마디4"""
     n = len(Y)
-    기울기들 = [None] * len(층)             # 층마다 (dW, db) 채울 자리
+    기울기들 = [None] * len(층)  # 층마다 (dW, db) 채울 자리
     y_hat = 활성화들[-1]
-    delta = 2 * (y_hat - Y) / n           # 출력층 delta = 씨앗 (출력은 선형이라 활성화 미분 없음)
-    for l in reversed(range(len(층))):     # ★ 문법 ★ reversed = 마지막 층부터 0번 층까지 거꾸로
-        A_입력 = 활성화들[l]                 # 이 층의 '입력' = 앞 층의 출력
+    delta = (
+        2 * (y_hat - Y) / n
+    )  # 출력층 delta = 씨앗 (출력은 선형이라 활성화 미분 없음)
+    for l in reversed(
+        range(len(층))
+    ):  # ★ 문법 ★ reversed = 마지막 층부터 0번 층까지 거꾸로
+        A_입력 = 활성화들[l]  # 이 층의 '입력' = 앞 층의 출력
         기울기들[l] = [A_입력.T @ delta, delta.sum(axis=0, keepdims=True)]
-        if l > 0:                         # 0번 층이면 더 앞으로 보낼 필요 없음
+        if l > 0:  # 0번 층이면 더 앞으로 보낼 필요 없음
             delta = (delta @ 층[l][0].T) * sigmoid_도함수_a(A_입력)
     return 기울기들
 
@@ -202,6 +210,7 @@ for l, (dW, db) in enumerate(기울기들0):
 # 은닉2층 망의 '모든 가중치' 기울기가 수치미분과 맞으면,
 # 역전파 일반화(delta 전파 for 루프)가 옳다는 강력한 증거입니다.
 
+
 def 손실(y_hat, Y):
     return np.mean((y_hat - Y) ** 2)
 
@@ -212,25 +221,30 @@ def 손실만_계산(X, Y, 층):
 
 def 수치미분_기울기(X, Y, 층, h=1e-5):
     """층의 모든 W, b 원소를 하나씩 흔들어 수치 기울기를 구합니다.
-       원소가 수십 개라 순전파를 수백 번 돌립니다. 느려요. 그래서 검산용입니다."""
+    원소가 수십 개라 순전파를 수백 번 돌립니다. 느려요. 그래서 검산용입니다."""
     수치들 = []
     for l in range(len(층)):
-        dW = np.zeros_like(층[l][0]); db = np.zeros_like(층[l][1])
+        dW = np.zeros_like(층[l][0])
+        db = np.zeros_like(층[l][1])
         for 파라, d파라 in ((층[l][0], dW), (층[l][1], db)):
-            it = np.nditer(파라, flags=["multi_index"])    # ★ 문법 ★ 배열 원소를 하나씩 훑는 도구
+            it = np.nditer(
+                파라, flags=["multi_index"]
+            )  # ★ 문법 ★ 배열 원소를 하나씩 훑는 도구
             while not it.finished:
                 idx = it.multi_index
                 원래 = 파라[idx]
-                파라[idx] = 원래 + h; L_plus = 손실만_계산(X, Y, 층)
-                파라[idx] = 원래 - h; L_minus = 손실만_계산(X, Y, 층)
-                파라[idx] = 원래                            # ★ 원상복구 필수 ★ 빼먹으면 망이 망가집니다
+                파라[idx] = 원래 + h
+                L_plus = 손실만_계산(X, Y, 층)
+                파라[idx] = 원래 - h
+                L_minus = 손실만_계산(X, Y, 층)
+                파라[idx] = 원래  # ★ 원상복구 필수 ★ 빼먹으면 망이 망가집니다
                 d파라[idx] = (L_plus - L_minus) / (2 * h)
                 it.iternext()
         수치들.append([dW, db])
     return 수치들
 
 
-검증망 = 층만들기([1, 6, 6, 1])                  # 같은 시드라 위 '망' 과 같은 값
+검증망 = 층만들기([1, 6, 6, 1])  # 같은 시드라 위 '망' 과 같은 값
 _, 활성화들 = 순전파(z, 검증망)
 역전파_기울기 = 역전파(Y, 활성화들, 검증망)
 수치_기울기 = 수치미분_기울기(z, Y, 검증망)
@@ -295,14 +309,15 @@ def 표준화(x):
 def fit(x, y, 구조, lr=0.1, epochs=1500, seed=0, 로그=False):
     """09 의 fit 과 똑같습니다. 딱 하나 달라진 건 '층이 리스트'라는 것뿐."""
     zz, m, s = 표준화(x)
-    X = zz.reshape(-1, 1); YY = y.reshape(-1, 1)
+    X = zz.reshape(-1, 1)
+    YY = y.reshape(-1, 1)
     층 = 층만들기(구조, seed=seed)
     for epoch in range(epochs):
-        y_hat, 활성화들 = 순전파(X, 층)                  # ① 예측
-        기울기들 = 역전파(YY, 활성화들, 층)                # ② 기울기 되짚기 (뒤→앞)
-        for l in range(len(층)):                       # ③ 층마다 갱신
-            층[l][0] -= lr * 기울기들[l][0]               # W ← W - lr·dW
-            층[l][1] -= lr * 기울기들[l][1]               # b ← b - lr·db
+        y_hat, 활성화들 = 순전파(X, 층)  # ① 예측
+        기울기들 = 역전파(YY, 활성화들, 층)  # ② 기울기 되짚기 (뒤→앞)
+        for l in range(len(층)):  # ③ 층마다 갱신
+            층[l][0] -= lr * 기울기들[l][0]  # W ← W - lr·dW
+            층[l][1] -= lr * 기울기들[l][1]  # b ← b - lr·db
         if 로그 and epoch % 300 == 0:
             print(f"      epoch {epoch:5d}   손실 {손실(순전파(X, 층)[0], YY):9.4f}")
     if 로그:
@@ -336,7 +351,7 @@ print("[4] 실습 — 층 구성을 바꿔 보면")
 print(f"      {'구조':26}{'최종손실':>10}")
 for 설명, 구조 in 실험구조.items():
     m = fit(온도, 불량, 구조, lr=0.1, epochs=1500, seed=0)
-    print(f"      {설명:26}{손실(predict(온도, m).reshape(-1,1), Y):10.4f}")
+    print(f"      {설명:26}{손실(predict(온도, m).reshape(-1, 1), Y):10.4f}")
 
 # +-------------------------------------------------------------------------+
 # | ^^ 여기까지 치고 실행 — A부 마무리                                       |
@@ -416,10 +431,11 @@ for 설명, 구조 in 실험구조.items():
 #   온도·압력 → ○ ○ ○ ○ ○ ○ → [점수0 점수1 점수2] → [p0 p1 p2] 합=1
 #                                                     ↑ 가장 큰 자리가 예측
 
+
 def softmax(Z):
     """p_k = e^(z_k) / Σ_j e^(z_j)
-       ★ 첫 줄이 안전장치입니다 ★ 각 행의 최댓값을 빼도 결과는 같습니다 (분자·분모에서 상쇄).
-       안 빼면 e^(큰 점수) 가 무한대로 터져요. 실무 코드에 반드시 들어가는 한 줄입니다."""
+    ★ 첫 줄이 안전장치입니다 ★ 각 행의 최댓값을 빼도 결과는 같습니다 (분자·분모에서 상쇄).
+    안 빼면 e^(큰 점수) 가 무한대로 터져요. 실무 코드에 반드시 들어가는 한 줄입니다."""
     Z = Z - Z.max(axis=1, keepdims=True)
     exp = np.exp(Z)
     return exp / exp.sum(axis=1, keepdims=True)
@@ -430,24 +446,28 @@ print("[5] softmax — 여러 점수를 합이 1인 확률로")
 예시점수 = np.array([[1.0, 3.0, 0.0]])
 예시확률 = softmax(예시점수)
 print(f"    점수: {예시점수[0].tolist()}")
-print(f"    확률: {np.round(예시확률[0], 3).tolist()}   합 = {float(예시확률.sum()):.6f}")
-print(f"    큰 점수 [1000, 1001, 999] 도 안 터짐 -> "
-      f"{np.round(softmax(np.array([[1000., 1001., 999.]]))[0], 3).tolist()}")
+print(
+    f"    확률: {np.round(예시확률[0], 3).tolist()}   합 = {float(예시확률.sum()):.6f}"
+)
+print(
+    f"    큰 점수 [1000, 1001, 999] 도 안 터짐 -> "
+    f"{np.round(softmax(np.array([[1000.0, 1001.0, 999.0]]))[0], 3).tolist()}"
+)
 
 
 def 원핫(y, K):
     """예측은 K개 확률로 나오는데 정답은 '2' 같은 숫자 하나입니다. 짝이 안 맞죠.
-       그래서 정답도 K개 자리로 폅니다 — 정답 클래스 자리만 1, 나머지는 0.
-         정답 0 → [1,0,0]    정답 1 → [0,1,0]    정답 2 → [0,0,1]"""
+    그래서 정답도 K개 자리로 폅니다 — 정답 클래스 자리만 1, 나머지는 0.
+      정답 0 → [1,0,0]    정답 1 → [0,1,0]    정답 2 → [0,0,1]"""
     Y = np.zeros((len(y), K))
-    Y[np.arange(len(y)), y] = 1          # ★ 문법 ★ 행 인덱스와 열 인덱스를 배열로 동시에 지정
+    Y[np.arange(len(y)), y] = 1  # ★ 문법 ★ 행 인덱스와 열 인덱스를 배열로 동시에 지정
     return Y
 
 
 def 교차엔트로피(P, Yh):
     """L = -Σ_k y_k · log(p_k)
-       정답 y 는 원-핫이라 정답 자리만 1. 그래서 합에서 0인 항은 다 사라지고
-       딱 '정답 클래스의 확률에 -log' 만 남습니다. BCE 의 일반화예요."""
+    정답 y 는 원-핫이라 정답 자리만 1. 그래서 합에서 0인 항은 다 사라지고
+    딱 '정답 클래스의 확률에 -log' 만 남습니다. BCE 의 일반화예요."""
     eps = 1e-9
     return -np.mean(np.sum(Yh * np.log(P + eps), axis=1))
 
@@ -520,12 +540,12 @@ def _make_class(n, 온도중심, 압력중심):
     return np.column_stack([t, p])
 
 
-X0 = _make_class(40, 22, 5)      # 양품:      저온
-X1 = _make_class(40, 30, 6)      # 경미 불량: 중온
-X2 = _make_class(40, 38, 7)      # 심각 불량: 고온
+X0 = _make_class(40, 22, 5)  # 양품:      저온
+X1 = _make_class(40, 30, 6)  # 경미 불량: 중온
+X2 = _make_class(40, 38, 7)  # 심각 불량: 고온
 X_raw = np.vstack([X0, X1, X2])
-yc = np.array([0]*40 + [1]*40 + [2]*40)
-K = 3                            # 클래스 수. 이 값만 바꾸면 4등급, 5등급도 됩니다
+yc = np.array([0] * 40 + [1] * 40 + [2] * 40)
+K = 3  # 클래스 수. 이 값만 바꾸면 4등급, 5등급도 됩니다
 # ★ 열별 표준화 ★ 온도(20~40)와 압력(5~7)은 스케일이 제각각입니다.
 #   그대로 넣으면 온도가 압력을 압도해요. 02 에서 배운 그 열별 표준화입니다.
 Xc = (X_raw - X_raw.mean(axis=0)) / X_raw.std(axis=0)
@@ -533,19 +553,19 @@ Xc = (X_raw - X_raw.mean(axis=0)) / X_raw.std(axis=0)
 
 def 순전파_다중(X, W, b, V, c):
     """11 의 순전파에서 마지막 한 줄만 바뀝니다. sigmoid → softmax"""
-    A = sigmoid(X @ W + b)       # (n×은닉) 은닉층 — 11 과 완전히 같음
-    P = softmax(A @ V + c)       # (n×K) K개 확률(합=1)  <- 여기가 이진과 다른 점
+    A = sigmoid(X @ W + b)  # (n×은닉) 은닉층 — 11 과 완전히 같음
+    P = softmax(A @ V + c)  # (n×K) K개 확률(합=1)  <- 여기가 이진과 다른 점
     return P, A
 
 
 def 역전파_다중(X, Yh, A, P, V):
     """★ 놀라운 단순함 ★
-       softmax 와 교차엔트로피를 짝지으면 출력 기울기가 또 p - y 입니다.
-       11 에서 sigmoid+BCE 가 (p-y) 였죠. 똑같아요.
-       단지 p 와 y 가 '스칼라 하나'에서 'K개 벡터'로 넓어졌을 뿐입니다."""
+    softmax 와 교차엔트로피를 짝지으면 출력 기울기가 또 p - y 입니다.
+    11 에서 sigmoid+BCE 가 (p-y) 였죠. 똑같아요.
+    단지 p 와 y 가 '스칼라 하나'에서 'K개 벡터'로 넓어졌을 뿐입니다."""
     n = len(X)
-    dlogit = (P - Yh) / n                        # (n×K) ← 11 의 (p-y) 그대로
-    dV = A.T @ dlogit                            # 이하 11 과 글자 하나 안 다름
+    dlogit = (P - Yh) / n  # (n×K) ← 11 의 (p-y) 그대로
+    dV = A.T @ dlogit  # 이하 11 과 글자 하나 안 다름
     dc = dlogit.sum(axis=0, keepdims=True)
     dA = dlogit @ V.T
     dZ = dA * A * (1 - A)
@@ -561,27 +581,34 @@ def fit_다중(X, y, K, 은닉수=8, lr=0.5, epochs=3000, 로그=False):
     np.random.seed(0)
     W = np.random.randn(특징수, 은닉수) * 0.5
     b = np.zeros((1, 은닉수))
-    V = np.random.randn(은닉수, K) * 0.5          # (은닉×K)  ← 출력이 K개
+    V = np.random.randn(은닉수, K) * 0.5  # (은닉×K)  ← 출력이 K개
     c = np.zeros((1, K))
     for epoch in range(epochs):
         P, A = 순전파_다중(X, W, b, V, c)
         dW, db, dV, dc = 역전파_다중(X, Yh, A, P, V)
-        W -= lr*dW; b -= lr*db; V -= lr*dV; c -= lr*dc
+        W -= lr * dW
+        b -= lr * db
+        V -= lr * dV
+        c -= lr * dc
         if 로그 and epoch % 600 == 0:
-            print(f"      epoch {epoch:5d}   교차엔트로피 "
-                  f"{교차엔트로피(순전파_다중(X,W,b,V,c)[0], Yh):.4f}")
+            print(
+                f"      epoch {epoch:5d}   교차엔트로피 "
+                f"{교차엔트로피(순전파_다중(X, W, b, V, c)[0], Yh):.4f}"
+            )
     if 로그:
-        print(f"      epoch {epochs:5d}   교차엔트로피 "
-              f"{교차엔트로피(순전파_다중(X,W,b,V,c)[0], Yh):.4f}")
+        print(
+            f"      epoch {epochs:5d}   교차엔트로피 "
+            f"{교차엔트로피(순전파_다중(X, W, b, V, c)[0], Yh):.4f}"
+        )
     return (W, b, V, c)
 
 
 def 예측확률_다중(X, 모델):
-    return 순전파_다중(X, *모델)[0]                # ★ 문법 ★ *모델 = 튜플을 인자들로 펼침
+    return 순전파_다중(X, *모델)[0]  # ★ 문법 ★ *모델 = 튜플을 인자들로 펼침
 
 
 def 예측_다중(X, 모델):
-    return 예측확률_다중(X, 모델).argmax(axis=1)    # 가장 큰 확률의 자리 = 예측 클래스
+    return 예측확률_다중(X, 모델).argmax(axis=1)  # 가장 큰 확률의 자리 = 예측 클래스
 
 
 def 정확도_다중(X, y, 모델):
@@ -601,7 +628,9 @@ print("[6] MLP 3클래스 학습 (양품/경미/심각)")
 모델다중 = fit_다중(Xc, yc, K, 은닉수=8, lr=0.5, epochs=3000, 로그=True)
 확률전체 = 예측확률_다중(Xc, 모델다중)
 print()
-print(f"    모든 샘플의 확률 합이 1인가? {bool(np.allclose(확률전체.sum(axis=1), 1.0))}")
+print(
+    f"    모든 샘플의 확률 합이 1인가? {bool(np.allclose(확률전체.sum(axis=1), 1.0))}"
+)
 print(f"    {'실제':>6}{'p(양품)':>10}{'p(경미)':>10}{'p(심각)':>10}{'예측':>6}")
 for idx in [0, 60, 119]:
     p = 확률전체[idx]
@@ -615,14 +644,14 @@ print("    혼동행렬 (행=실제, 열=예측)")
 print("                   예측:양품  예측:경미  예측:심각")
 이름 = ["양품", "경미", "심각"]
 for k in range(K):
-    print(f"      실제:{이름[k]}        {M[k,0]:6d}     {M[k,1]:6d}     {M[k,2]:6d}")
+    print(f"      실제:{이름[k]}        {M[k, 0]:6d}     {M[k, 1]:6d}     {M[k, 2]:6d}")
 
 print("=" * 60)
 print("[7] 실습 — K 만 바꾸면 4등급도 된다")
 np.random.seed(1)
-X3 = _make_class(40, 26, 5.5)                          # 새 등급: 양품과 경미 사이(26도)
-X_raw4 = np.vstack([X0, X3, X1, X2])                   # 0=양품 1=보통(26) 2=경미(30) 3=심각(38)
-y4 = np.array([0]*40 + [1]*40 + [2]*40 + [3]*40)
+X3 = _make_class(40, 26, 5.5)  # 새 등급: 양품과 경미 사이(26도)
+X_raw4 = np.vstack([X0, X3, X1, X2])  # 0=양품 1=보통(26) 2=경미(30) 3=심각(38)
+y4 = np.array([0] * 40 + [1] * 40 + [2] * 40 + [3] * 40)
 X4 = (X_raw4 - X_raw4.mean(axis=0)) / X_raw4.std(axis=0)
 모델4 = fit_다중(X4, y4, K=4, 은닉수=8, lr=0.5, epochs=3000)
 print(f"    클래스 수 K=4, 정확도: {정확도_다중(X4, y4, 모델4):.4f}")
@@ -708,20 +737,30 @@ print(f"    클래스 수 K=4, 정확도: {정확도_다중(X4, y4, 모델4):.4f
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "수업용데이터")
 d = pd.read_csv(os.path.join(DATA, "11_설비센서_ai4i_전체.csv"), encoding="utf-8-sig")
-단일 = d[["방열고장", "과부하고장"]].sum(axis=1)              # 두 모드가 동시에 뜬 행을 걸러내려고
-정상 = d[d["고장여부"] == 0].sample(200, random_state=0)     # 정상이 9,661개라 200개만 뽑음
+단일 = d[["방열고장", "과부하고장"]].sum(axis=1)  # 두 모드가 동시에 뜬 행을 걸러내려고
+정상 = d[d["고장여부"] == 0].sample(
+    200, random_state=0
+)  # 정상이 9,661개라 200개만 뽑음
 hdf = d[(d["방열고장"] == 1) & (단일 == 1)]
 osf = d[(d["과부하고장"] == 1) & (단일 == 1)]
 sub = pd.concat([정상, hdf, osf])
 y실 = np.r_[np.zeros(len(정상)), np.ones(len(hdf)), np.full(len(osf), 2)].astype(int)
-특징 = ["공기온도", "공정온도", "회전수", "토크", "공구마모"]      # 02·03 에서 쓴 그 다섯 개
+특징 = [
+    "공기온도",
+    "공정온도",
+    "회전수",
+    "토크",
+    "공구마모",
+]  # 02·03 에서 쓴 그 다섯 개
 X실_raw = sub[특징].values.astype(float)
-X실 = (X실_raw - X실_raw.mean(axis=0)) / X실_raw.std(axis=0)   # 열별 표준화
+X실 = (X실_raw - X실_raw.mean(axis=0)) / X실_raw.std(axis=0)  # 열별 표준화
 
 print("=" * 60)
 print("[8] 실데이터 다중분류 — 3단원의 그 설비, 고장 '종류'까지 맞히기")
-print(f"    샘플 {len(y실)}개  /  정상 {int((y실==0).sum())}, "
-      f"방열고장 {int((y실==1).sum())}, 과부하고장 {int((y실==2).sum())}")
+print(
+    f"    샘플 {len(y실)}개  /  정상 {int((y실 == 0).sum())}, "
+    f"방열고장 {int((y실 == 1).sum())}, 과부하고장 {int((y실 == 2).sum())}"
+)
 모델실 = fit_다중(X실, y실, K=3, 은닉수=16, lr=0.5, epochs=3000, 로그=True)
 판정실 = 예측_다중(X실, 모델실)
 M실 = 혼동행렬_다중(y실, 판정실, 3)
@@ -731,7 +770,9 @@ print("    혼동행렬 (행=실제, 열=예측)")
 print("                     예측:정상  예측:방열  예측:과부하")
 이름실 = ["정상  ", "방열  ", "과부하"]
 for k in range(3):
-    print(f"      실제:{이름실[k]}       {M실[k,0]:6d}     {M실[k,1]:6d}     {M실[k,2]:6d}")
+    print(
+        f"      실제:{이름실[k]}       {M실[k, 0]:6d}     {M실[k, 1]:6d}     {M실[k, 2]:6d}"
+    )
 
 # +-------------------------------------------------------------------------+
 # | ^^ 여기까지 치고 실행 — B부 마무리                                       |
@@ -812,8 +853,8 @@ np.random.seed(42)
 
 def sigmoid_도함수_z(z):
     """★ 인자 규약 주의 ★ 이건 'z'를 받아 안에서 a 를 구합니다.
-       위 §1 의 sigmoid_도함수_a 는 이미 구한 'a'를 받아요. 식은 같지만 넣는 게 다릅니다.
-       실무에서 이걸 헷갈려서 나는 버그가 꽤 많습니다. 이름을 다르게 지어 두는 게 요령이에요."""
+    위 §1 의 sigmoid_도함수_a 는 이미 구한 'a'를 받아요. 식은 같지만 넣는 게 다릅니다.
+    실무에서 이걸 헷갈려서 나는 버그가 꽤 많습니다. 이름을 다르게 지어 두는 게 요령이에요."""
     a = sigmoid(z)
     return a * (1 - a)
 
@@ -823,7 +864,7 @@ def tanh(z):
 
 
 def tanh_도함수(z):
-    return 1 - np.tanh(z) ** 2          # 1 - tanh²,  최대 1 (z=0 에서)
+    return 1 - np.tanh(z) ** 2  # 1 - tanh²,  최대 1 (z=0 에서)
 
 
 def relu(z):
@@ -831,7 +872,9 @@ def relu(z):
 
 
 def relu_도함수(z):
-    return np.where(z > 0, 1.0, 0.0)    # ★ 문법 ★ np.where(조건, 참일때, 거짓일때) — 배열판 한 줄 if
+    return np.where(
+        z > 0, 1.0, 0.0
+    )  # ★ 문법 ★ np.where(조건, 참일때, 거짓일때) — 배열판 한 줄 if
 
 
 def leaky(z, 기울기=0.01):
@@ -847,8 +890,10 @@ print("=" * 60)
 print("[9] 활성화 4종 — 도함수가 '층마다 곱해지는 값'")
 print("        z      sigmoid'    tanh'    relu'   leaky'")
 for zz in [-2.0, -1.0, 0.0, 1.0, 2.0]:
-    print(f"      {zz:+.1f}      {sigmoid_도함수_z(zz):.3f}     {tanh_도함수(zz):.3f}"
-          f"    {relu_도함수(zz):.3f}    {leaky_도함수(zz):.3f}")
+    print(
+        f"      {zz:+.1f}      {sigmoid_도함수_z(zz):.3f}     {tanh_도함수(zz):.3f}"
+        f"    {relu_도함수(zz):.3f}    {leaky_도함수(zz):.3f}"
+    )
 
 print()
 print("[9-1] 죽은 ReLU — 음수만 들어온 뉴런")
@@ -915,7 +960,9 @@ print("[10] 초기화 — 0 도, 큰 것도, 작은 것도 안 된다")
 # 뉴런이 열 개든 백 개든 전부 '한 뉴런의 복사본'이 됩니다.
 입력 = np.array([1.0, 2.0])
 W0 = np.zeros((3, 2))
-print(f"    0 으로 초기화하면 세 뉴런의 z: {W0 @ 입력}   <- 전부 똑같음 = 대칭이 안 깨짐")
+print(
+    f"    0 으로 초기화하면 세 뉴런의 z: {W0 @ 입력}   <- 전부 똑같음 = 대칭이 안 깨짐"
+)
 
 # ── 금기 2·3: 너무 크거나 너무 작거나 ──
 print()
@@ -924,7 +971,9 @@ x = np.random.randn(n_in)
 for 표준편차 in [0.01, 1.0, 10.0]:
     W = np.random.randn(n_in) * 표준편차
     zv = W @ x
-    print(f"    가중치 std={표준편차:5.2f} -> z={zv:+9.2f},  sigmoid'(z)={sigmoid_도함수_z(zv):.6f}")
+    print(
+        f"    가중치 std={표준편차:5.2f} -> z={zv:+9.2f},  sigmoid'(z)={sigmoid_도함수_z(zv):.6f}"
+    )
 
 # ── 처방: He / Xavier — 팬-인에 분산을 맞춘다 ──
 # ★ 용어 ★ 팬-인(fan-in) = 그 뉴런에 들어오는 선의 수 = 앞 층의 뉴런 수.
@@ -934,27 +983,31 @@ for 표준편차 in [0.01, 1.0, 10.0]:
 print()
 print("[10-1] He / Xavier — 팬-인에 맞춘 딱 좋은 크기")
 for n in [10, 100, 1000]:
-    print(f"      n_in={n:4d} :  He std=sqrt(2/{n})={np.sqrt(2/n):.4f}   "
-          f"Xavier(간이) std=sqrt(1/{n})={np.sqrt(1/n):.4f}")
+    print(
+        f"      n_in={n:4d} :  He std=sqrt(2/{n})={np.sqrt(2 / n):.4f}   "
+        f"Xavier(간이) std=sqrt(1/{n})={np.sqrt(1 / n):.4f}"
+    )
 
 
 def 신호_흐르기(초기화방식):
     """은닉층 5개를 통과시키며 활성화의 표준편차가 유지되는지 봅니다"""
-    a = np.random.randn(200)                      # 입력 200개, std≈1 로 출발
+    a = np.random.randn(200)  # 입력 200개, std≈1 로 출발
     stds = []
     for _ in range(5):
         n_in = a.shape[0]
         if 초기화방식 == "he":
             W = np.random.randn(200, n_in) * np.sqrt(2 / n_in)
-        else:                                      # 너무 큰 초기화
+        else:  # 너무 큰 초기화
             W = np.random.randn(200, n_in) * 1.0
         a = relu(W @ a)
         stds.append(a.std())
     return stds
 
 
-np.random.seed(42); he_stds = 신호_흐르기("he")
-np.random.seed(42); 큰_stds = 신호_흐르기("big")
+np.random.seed(42)
+he_stds = 신호_흐르기("he")
+np.random.seed(42)
+큰_stds = 신호_흐르기("big")
 print()
 print("[10-2] 층을 지날 때 신호(활성화)의 표준편차")
 print("      He 초기화     :", [f"{s:.2f}" for s in he_stds])
@@ -1016,11 +1069,12 @@ print("      너무 큰 초기화:", [f"{s:.1f}" for s in 큰_stds])
 # 직선 하나로 못 가르는 비선형 문제입니다 — 10 의 XOR 과 같은 모양이에요.
 # 그래서 은닉층이 꼭 필요합니다.
 
+
 def 제조데이터(n=400):
     np.random.seed(0)
-    t = np.random.randn(n)                       # 표준화된 온도
-    v = np.random.randn(n)                       # 표준화된 진동
-    yy = ((t * v) > 0).astype(float)             # 부호가 같으면 불량(1) → 비선형(XOR 모양)
+    t = np.random.randn(n)  # 표준화된 온도
+    v = np.random.randn(n)  # 표준화된 진동
+    yy = ((t * v) > 0).astype(float)  # 부호가 같으면 불량(1) → 비선형(XOR 모양)
     return np.stack([t, v], axis=1), yy.reshape(-1, 1)
 
 
@@ -1029,7 +1083,7 @@ Xm, ym = 제조데이터()
 
 def mlp_학습(활성화, 활성화도함수, 초기화, 스텝=150, lr=0.5, seed=1):
     """망 구조: 입력 2 → 은닉 16(활성화) → 출력 1(sigmoid).
-       '은닉층 활성화'와 '초기화'만 인자로 바꿔 끼워, 그 둘의 영향만 딱 떼어 비교합니다."""
+    '은닉층 활성화'와 '초기화'만 인자로 바꿔 끼워, 그 둘의 영향만 딱 떼어 비교합니다."""
     np.random.seed(seed)
     n_in, n_hid = 2, 16
     if 초기화 == "he":
@@ -1037,7 +1091,7 @@ def mlp_학습(활성화, 활성화도함수, 초기화, 스텝=150, lr=0.5, see
     elif 초기화 == "xavier":
         W1 = np.random.randn(n_in, n_hid) * np.sqrt(1 / n_in)
     elif 초기화 == "zero":
-        W1 = np.zeros((n_in, n_hid))             # 대칭 안 깨짐 (나쁨)
+        W1 = np.zeros((n_in, n_hid))  # 대칭 안 깨짐 (나쁨)
     else:
         W1 = np.random.randn(n_in, n_hid) * 0.01  # 너무 작음
     b1 = np.zeros(n_hid)
@@ -1046,15 +1100,20 @@ def mlp_학습(활성화, 활성화도함수, 초기화, 스텝=150, lr=0.5, see
     손실기록 = []
     for _ in range(스텝):
         z1 = Xm @ W1 + b1
-        a1 = 활성화(z1)                           # ← 여기를 바꿔 끼움
-        y_hat = sigmoid(a1 @ W2 + b2)            # 출력은 항상 sigmoid (이진 분류)
-        p = np.clip(y_hat, 1e-7, 1 - 1e-7)       # ★ 문법 ★ clip = 범위를 벗어난 값을 잘라냄
+        a1 = 활성화(z1)  # ← 여기를 바꿔 끼움
+        y_hat = sigmoid(a1 @ W2 + b2)  # 출력은 항상 sigmoid (이진 분류)
+        p = np.clip(y_hat, 1e-7, 1 - 1e-7)  # ★ 문법 ★ clip = 범위를 벗어난 값을 잘라냄
         손실기록.append(-np.mean(ym * np.log(p) + (1 - ym) * np.log(1 - p)))
-        d_z2 = (y_hat - ym) / len(Xm)            # 11 의 (p-y) 그대로
-        d_W2 = a1.T @ d_z2; d_b2 = d_z2.sum(axis=0)
-        d_z1 = (d_z2 @ W2.T) * 활성화도함수(z1)     # ← 은닉 활성화 도함수 곱하기
-        d_W1 = Xm.T @ d_z1; d_b1 = d_z1.sum(axis=0)
-        W2 -= lr*d_W2; b2 -= lr*d_b2; W1 -= lr*d_W1; b1 -= lr*d_b1
+        d_z2 = (y_hat - ym) / len(Xm)  # 11 의 (p-y) 그대로
+        d_W2 = a1.T @ d_z2
+        d_b2 = d_z2.sum(axis=0)
+        d_z1 = (d_z2 @ W2.T) * 활성화도함수(z1)  # ← 은닉 활성화 도함수 곱하기
+        d_W1 = Xm.T @ d_z1
+        d_b1 = d_z1.sum(axis=0)
+        W2 -= lr * d_W2
+        b2 -= lr * d_b2
+        W1 -= lr * d_W1
+        b1 -= lr * d_b1
     return 손실기록, np.mean((y_hat > 0.5) == ym)
 
 
@@ -1068,7 +1127,10 @@ for 초기화 in ["zero", "small", "he"]:
 print()
 print("[11-1] 활성화 비교   (초기화=He, 150스텝)")
 print("      활성화      시작손실    끝손실    정확도")
-for 이름a, act, dact in [("sigmoid", sigmoid, sigmoid_도함수_z), ("relu", relu, relu_도함수)]:
+for 이름a, act, dact in [
+    ("sigmoid", sigmoid, sigmoid_도함수_z),
+    ("relu", relu, relu_도함수),
+]:
     손실기록, acc = mlp_학습(act, dact, "he")
     print(f"      {이름a:8s}     {손실기록[0]:.4f}    {손실기록[-1]:.4f}    {acc:.3f}")
 
